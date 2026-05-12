@@ -1,0 +1,1 @@
+from .detector_senales import DetectorSenales
