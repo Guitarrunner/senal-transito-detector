@@ -7,8 +7,8 @@ class ExportadorDataset:
         self.almacenamiento = almacenamiento
         self.export_dir = Path(export_dir)
 
-        self.images_dir = self.export_dir / "images"
-        self.labels_dir = self.export_dir / "labels"
+        self.images_dir = self.export_dir / "images" / "train"
+        self.labels_dir = self.export_dir / "labels" / "train"
 
         self.images_dir.mkdir(parents=True, exist_ok=True)
         self.labels_dir.mkdir(parents=True, exist_ok=True)
@@ -18,26 +18,31 @@ class ExportadorDataset:
         detecciones = self.almacenamiento.obtener_detecciones()
         etiquetas = self.almacenamiento.obtener_etiquetas()
 
-        detecciones_por_imagen = self._agrupar_detecciones_por_imagen(
-            detecciones
-        )
+        detecciones_por_imagen = self._agrupar_detecciones_por_imagen(detecciones)
+        etiquetas_por_deteccion = self._agrupar_etiquetas_por_deteccion(etiquetas)
 
-        etiquetas_por_deteccion = self._agrupar_etiquetas_por_deteccion(
-            etiquetas
-        )
+        imagenes_exportadas = 0
+        etiquetas_exportadas = 0
 
         for imagen in imagenes:
-            self._exportar_imagen(
-                imagen
-            )
+            exportada = self._exportar_imagen(imagen)
 
-            self._exportar_etiquetas_yolo(
+            if exportada:
+                imagenes_exportadas += 1
+
+            etiquetas_exportadas += self._exportar_etiquetas_yolo(
                 imagen,
                 detecciones_por_imagen,
                 etiquetas_por_deteccion
             )
 
         self._generar_dataset_yaml()
+
+        return {
+            "imagenes_exportadas": imagenes_exportadas,
+            "etiquetas_exportadas": etiquetas_exportadas,
+            "ruta_exportacion": str(self.export_dir)
+        }
 
     def _agrupar_detecciones_por_imagen(self, detecciones):
         agrupadas = {}
@@ -65,15 +70,14 @@ class ExportadorDataset:
         ruta_origen = Path(imagen["ruta"])
 
         if not ruta_origen.exists():
-            return
+            return False
 
         extension = ruta_origen.suffix
         ruta_destino = self.images_dir / f'{imagen["id"]}{extension}'
 
-        shutil.copyfile(
-            ruta_origen,
-            ruta_destino
-        )
+        shutil.copyfile(ruta_origen, ruta_destino)
+
+        return True
 
     def _exportar_etiquetas_yolo(
         self,
@@ -84,18 +88,14 @@ class ExportadorDataset:
         imagen_id = imagen["id"]
         resolucion = imagen["resolucion"]
 
-        ancho_img, alto_img = self._parsear_resolucion(
-            resolucion
-        )
+        ancho_img, alto_img = self._parsear_resolucion(resolucion)
 
         ruta_label = self.labels_dir / f"{imagen_id}.txt"
 
         lineas = []
 
         for deteccion in detecciones_por_imagen.get(imagen_id, []):
-            etiqueta = etiquetas_por_deteccion.get(
-                deteccion["id"]
-            )
+            etiqueta = etiquetas_por_deteccion.get(deteccion["id"])
 
             if etiqueta is None:
                 continue
@@ -112,9 +112,7 @@ class ExportadorDataset:
             ancho_norm = ancho / ancho_img
             alto_norm = alto / alto_img
 
-            clase_id = self._convertir_tipo_a_clase(
-                deteccion["tipo_senal"]
-            )
+            clase_id = self._convertir_tipo_a_clase(deteccion["tipo_senal"])
 
             linea = (
                 f"{clase_id} "
@@ -129,6 +127,8 @@ class ExportadorDataset:
         with open(ruta_label, "w", encoding="utf-8") as archivo:
             archivo.write("\n".join(lineas))
 
+        return len(lineas)
+
     def _parsear_resolucion(self, resolucion):
         ancho, alto = resolucion.split("x")
         return int(ancho), int(alto)
@@ -141,11 +141,11 @@ class ExportadorDataset:
 
     def _generar_dataset_yaml(self):
         contenido = """path: exports/yolo_dataset
-train: images
-val: images
+train: images/train
+val: images/train
 
 names:
-  0: objeto
+  0: objeto_detectado
 """
 
         ruta_yaml = self.export_dir / "dataset.yaml"

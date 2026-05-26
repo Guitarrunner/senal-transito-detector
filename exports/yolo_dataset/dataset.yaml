@@ -1,6 +1,6 @@
 path: exports/yolo_dataset
-train: images
-val: images
+train: images/train
+val: images/train
 
 names:
-  0: objeto
+  0: objeto_detectado

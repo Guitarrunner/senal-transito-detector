@@ -6,9 +6,12 @@ def main():
     almacenamiento = GestorAlmacenamiento()
     exportador = ExportadorDataset(almacenamiento)
 
-    exportador.exportar()
+    resultado = exportador.exportar()
 
-    print("Dataset exportado correctamente en exports/yolo_dataset")
+    print("Dataset exportado correctamente")
+    print(f"Imágenes exportadas: {resultado['imagenes_exportadas']}")
+    print(f"Etiquetas exportadas: {resultado['etiquetas_exportadas']}")
+    print(f"Ruta: {resultado['ruta_exportacion']}")
 
 
 if __name__ == "__main__":
