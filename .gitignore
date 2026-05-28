@@ -4,6 +4,8 @@ __pycache__/
 venv/
 .env
 
+runs/
+
 data/input/*
 data/processed/*
 data/evidence/*
@@ -15,6 +17,7 @@ dataset/images/test/*
 dataset/labels/train/*
 dataset/labels/val/*
 dataset/labels/test/*
+dataset/raw/*
 
 !data/input/.gitkeep
 !data/processed/.gitkeep
@@ -28,6 +31,12 @@ dataset/labels/test/*
 !dataset/labels/val/.gitkeep
 !dataset/labels/test/.gitkeep
 !dataset/dataset.yaml
+dataset/raw/*
+!dataset/raw/alto/.gitkeep
+!dataset/raw/ceda/.gitkeep
+!dataset/raw/velocidad/.gitkeep
+!dataset/raw/curva/.gitkeep
+!dataset/raw/peatones/.gitkeep
 
 *.pt
 *.onnx
