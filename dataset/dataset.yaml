@@ -1,0 +1,11 @@
+path: dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: alto
+  1: ceda
+  2: velocidad
+  3: curva
+  4: peatones

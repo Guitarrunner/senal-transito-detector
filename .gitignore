@@ -9,12 +9,25 @@ data/processed/*
 data/evidence/*
 data/metadata/*
 data/logs/*
+dataset/images/train/*
+dataset/images/val/*
+dataset/images/test/*
+dataset/labels/train/*
+dataset/labels/val/*
+dataset/labels/test/*
 
 !data/input/.gitkeep
 !data/processed/.gitkeep
 !data/evidence/.gitkeep
 !data/metadata/.gitkeep
 !data/logs/.gitkeep
+!dataset/images/train/.gitkeep
+!dataset/images/val/.gitkeep
+!dataset/images/test/.gitkeep
+!dataset/labels/train/.gitkeep
+!dataset/labels/val/.gitkeep
+!dataset/labels/test/.gitkeep
+!dataset/dataset.yaml
 
 *.pt
 *.onnx
