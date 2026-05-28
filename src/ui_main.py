@@ -1,11 +1,9 @@
-from src.ui.interfaz_visualizacion import InterfazVisualizacion
+from src.ui.login import Login
 
 
 def main():
-
-    interfaz = InterfazVisualizacion()
-
-    interfaz.ejecutar()
+    login = Login()
+    login.ejecutar()
 
 
 if __name__ == "__main__":
