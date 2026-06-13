@@ -10,6 +10,7 @@ from src.processing.procesador_imagen import ProcesadorImagen
 from src.detection.detector_senales import DetectorSenales
 from src.visualization.visualizador_resultados import VisualizadorResultados
 from src.storage.gestor_almacenamiento import GestorAlmacenamiento
+from src.processing.procesador_video import ProcesadorVideo
 class InterfazVisualizacion:
 
     def __init__(self):
@@ -29,6 +30,13 @@ class InterfazVisualizacion:
         self.etiquetas_actuales = []
 
         self.procesador = ProcesadorImagen()
+
+        self.procesador_video = ProcesadorVideo()
+        self.imagenes_exportacion_actuales = []
+
+        self.frames_video_actual = []
+        self.indice_frame_video_actual = 0
+        self.modo_video = False
 
         self.detector = DetectorSenales(
             modelo_path="models/best.pt",
@@ -108,6 +116,18 @@ class InterfazVisualizacion:
             pady=10
         )
 
+        boton_video = tk.Button(
+            sidebar,
+            text="Procesar video",
+            command=self.procesar_video,
+            height=2,
+            width=25
+        )
+
+        boton_video.pack(
+            pady=5
+        )
+
         boton_limpiar = tk.Button(
             sidebar,
             text="Limpiar interfaz",
@@ -149,7 +169,7 @@ class InterfazVisualizacion:
 
         self.label_estado = tk.Label(
             sidebar,
-            text="Esperando imagen...",
+            text="Esperando imagen o video...",
             font=("Arial", 11),
             bg="#f0f0f0",
             fg="#333333",
@@ -202,6 +222,50 @@ class InterfazVisualizacion:
         self.canvas.pack(
             pady=10
         )
+
+        self.frame_navegacion_video = tk.Frame(
+            self.canvas.master
+        )
+
+        self.boton_frame_anterior = tk.Button(
+            self.frame_navegacion_video,
+            text="← Frame anterior",
+            command=lambda: self.cambiar_frame_video(-1),
+            width=18
+        )
+
+        self.boton_frame_anterior.pack(
+            side=tk.LEFT,
+            padx=5
+        )
+
+        self.label_frame_video = tk.Label(
+            self.frame_navegacion_video,
+            text="Frame 0 de 0",
+        )
+
+        self.label_frame_video.pack(
+            side=tk.LEFT,
+            padx=10
+        )
+
+        self.boton_frame_siguiente = tk.Button(
+            self.frame_navegacion_video,
+            text="Frame siguiente →",
+            command=lambda: self.cambiar_frame_video(1),
+            width=18
+        )
+
+        self.boton_frame_siguiente.pack(
+            side=tk.LEFT,
+            padx=5
+        )
+
+        self.frame_navegacion_video.pack(
+            pady=5
+        )
+
+        self.frame_navegacion_video.pack_forget()
     
     def centrar_ventana(self, ancho, alto):
         self.ventana.update_idletasks()
@@ -215,6 +279,12 @@ class InterfazVisualizacion:
         self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     def procesar_imagen(self):
+
+        self.modo_video = False
+        self.frames_video_actual = []
+        self.indice_frame_video_actual = 0
+
+        self.frame_navegacion_video.pack_forget()
 
         ruta = filedialog.askopenfilename(
             title="Seleccionar imagen",
@@ -259,11 +329,15 @@ class InterfazVisualizacion:
             self.etiquetas_actuales = etiquetas
 
             if detecciones:
+                self.imagenes_exportacion_actuales = [imagen.id]
+
                 self.boton_agregar_exportacion.config(
                     state=tk.NORMAL,
                     text="Agregar a exportación"
                 )
             else:
+                self.imagenes_exportacion_actuales = []
+
                 self.boton_agregar_exportacion.config(
                     state=tk.DISABLED,
                     text="Agregar a exportación"
@@ -402,7 +476,7 @@ class InterfazVisualizacion:
         )
 
         self.label_estado.config(
-            text="Esperando imagen..."
+            text="Esperando imagen o video..."
         )
 
         self.imagen_actual = None
@@ -413,33 +487,47 @@ class InterfazVisualizacion:
             state=tk.DISABLED
         )
 
-    def agregar_imagen_a_exportacion(self):
-        if self.imagen_actual is None:
-            messagebox.showwarning(
-                "Sin imagen",
-                "Primero debe cargar y procesar una imagen."
-            )
-            return
-
-        if not self.detecciones_actuales:
-            messagebox.showwarning(
-                "Sin detecciones",
-                "No hay detecciones para agregar a la exportación."
-            )
-            return
-
-        self.almacenamiento.marcar_imagen_para_exportacion(
-            self.imagen_actual.id
-        )
+        self.imagenes_exportacion_actuales = []
 
         self.boton_agregar_exportacion.config(
             state=tk.DISABLED,
-            text="Imagen agregada"
+            text="Agregar a exportación"
+        )
+
+        self.modo_video = False
+        self.frames_video_actual = []
+        self.indice_frame_video_actual = 0
+        self.imagenes_exportacion_actuales = []
+
+        self.frame_navegacion_video.pack_forget()
+
+        self.boton_agregar_exportacion.config(
+            state=tk.DISABLED,
+            text="Agregar a exportación"
+        )
+
+    def agregar_imagen_a_exportacion(self):
+        if not self.imagenes_exportacion_actuales:
+            messagebox.showwarning(
+                "Sin datos para exportar",
+                "No hay imágenes o frames aprobables para agregar a la exportación."
+            )
+            return
+
+        for imagen_id in self.imagenes_exportacion_actuales:
+            self.almacenamiento.marcar_imagen_para_exportacion(
+                imagen_id
+            )
+
+        self.boton_agregar_exportacion.config(
+            state=tk.DISABLED,
+            text="Agregado a exportación"
         )
 
         messagebox.showinfo(
-            "Imagen agregada",
-            "La imagen fue agregada a la cola de exportación."
+            "Datos agregados",
+            f"Se agregaron {len(self.imagenes_exportacion_actuales)} "
+            "imagen(es) o frame(s) a la cola de exportación."
         )
 
     def exportar_dataset_yolo(self):
@@ -487,6 +575,333 @@ class InterfazVisualizacion:
         """
         self.almacenamiento.limpiar_cola_exportacion()
 
+    def procesar_video(self):
+
+        ruta = filedialog.askopenfilename(
+            title="Seleccionar video",
+            filetypes=[
+                ("Videos", "*.mp4 *.avi *.mov")
+            ]
+        )
+
+        if not ruta:
+            return
+
+        try:
+            video_id = str(uuid.uuid4())
+
+            self.label_estado.config(
+                text="Procesando video..."
+            )
+
+            self.ventana.update_idletasks()
+
+            resultado_video = self.procesador_video.procesar_video(
+                ruta=ruta,
+                video_id=video_id,
+                intervalo_segundos=1,
+                max_frames=30
+            )
+
+            detecciones_totales = []
+            frames_con_detecciones = 0
+            ruta_evidencia_mostrar = None
+            resumen_frames = []
+            ids_exportables = []
+
+            for frame_info in resultado_video["frames"]:
+                imagen = frame_info["imagen"]
+                ruta_procesada = frame_info["ruta_procesada"]
+
+                self.almacenamiento.guardar_imagen(
+                    imagen
+                )
+
+                detecciones, etiquetas = self.detector.detectar(
+                    ruta_imagen=ruta_procesada,
+                    imagen_id=imagen.id
+                )
+
+                self.almacenamiento.guardar_detecciones(
+                    detecciones
+                )
+
+                self.almacenamiento.guardar_etiquetas(
+                    etiquetas
+                )
+
+                ruta_evidencia = self.visualizador.dibujar_detecciones(
+                    ruta_imagen=ruta_procesada,
+                    detecciones=detecciones,
+                    etiquetas=etiquetas,
+                    nombre_salida=f"{imagen.id}_evidencia.png"
+                )
+
+                if detecciones:
+                    frames_con_detecciones += 1
+                    detecciones_totales.extend(detecciones)
+                    ids_exportables.append(imagen.id)
+
+                    if ruta_evidencia_mostrar is None:
+                        ruta_evidencia_mostrar = ruta_evidencia
+
+                resumen_frames.append(
+                    {
+                        "imagen_id": imagen.id,
+                        "frame": frame_info["frame"],
+                        "segundo": frame_info["segundo"],
+                        "ruta_evidencia": ruta_evidencia,
+                        "detecciones": detecciones,
+                        "etiquetas": etiquetas
+                    }
+                )
+
+                self.label_estado.config(
+                    text=(
+                        f"Procesando video...\n"
+                        f"Frames analizados: {len(resumen_frames)}"
+                    )
+                )
+
+                self.ventana.update_idletasks()
+
+            if ruta_evidencia_mostrar is None:
+                ruta_evidencia_mostrar = self.visualizador.dibujar_detecciones(
+                    ruta_imagen=resultado_video["frames"][0]["ruta_procesada"],
+                    detecciones=[],
+                    etiquetas=[],
+                    nombre_salida=f"{video_id}_sin_detecciones.png"
+                )
+
+            self.imagen_actual = None
+            self.detecciones_actuales = detecciones_totales
+            self.etiquetas_actuales = []
+            self.imagenes_exportacion_actuales = ids_exportables
+
+            if ids_exportables:
+                self.boton_agregar_exportacion.config(
+                    state=tk.NORMAL,
+                    text="Agregar a exportación"
+                )
+            else:
+                self.boton_agregar_exportacion.config(
+                    state=tk.DISABLED,
+                    text="Agregar a exportación"
+                )
+
+            self.frames_video_actual = resumen_frames
+            self.indice_frame_video_actual = 0
+            self.modo_video = True
+
+            self.frame_navegacion_video.pack(
+                pady=5
+            )
+
+            self.mostrar_frame_video_actual()
+
+            self.label_estado.config(
+                text=(
+                    f"Video procesado\n\n"
+                    f"Frames analizados: {resultado_video['frames_analizados']}\n"
+                    f"Frames con detecciones: {frames_con_detecciones}\n"
+                    f"Detecciones totales: {len(detecciones_totales)}"
+                )
+            )
+
+            self.label_estado.config(
+                text=(
+                    f"Video procesado\n\n"
+                    f"Frames analizados: {resultado_video['frames_analizados']}\n"
+                    f"Frames con detecciones: {frames_con_detecciones}\n"
+                    f"Detecciones totales: {len(detecciones_totales)}"
+                )
+            )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Error",
+                str(error)
+            )
+
+    def mostrar_resultados_video(
+        self,
+        resultado_video,
+        resumen_frames,
+        frames_con_detecciones,
+        detecciones_totales
+    ):
+
+        self.texto_resultados.config(
+            state="normal"
+        )
+
+        self.texto_resultados.delete(
+            "1.0",
+            tk.END
+        )
+
+        texto = (
+            "Análisis de video\n\n"
+            f"Frames analizados: {resultado_video['frames_analizados']}\n"
+            f"Frames con detecciones: {frames_con_detecciones}\n"
+            f"Detecciones totales: {detecciones_totales}\n\n"
+        )
+
+        self.texto_resultados.insert(
+            tk.END,
+            texto
+        )
+
+        for frame_info in resumen_frames:
+            detecciones = frame_info["detecciones"]
+
+            if not detecciones:
+                continue
+
+            self.texto_resultados.insert(
+                tk.END,
+                f"Frame {frame_info['frame']} "
+                f"({frame_info['segundo']}s)\n"
+            )
+
+            for deteccion in detecciones:
+                self.texto_resultados.insert(
+                    tk.END,
+                    f"- {deteccion.tipo_senal} "
+                    f"({deteccion.confianza:.2f})\n"
+                )
+
+            self.texto_resultados.insert(
+                tk.END,
+                "\n"
+            )
+
+        if detecciones_totales == 0:
+            self.texto_resultados.insert(
+                tk.END,
+                "No se detectaron señales en los frames analizados."
+            )
+
+        self.texto_resultados.config(
+            state="disabled"
+        )
+
+    def cambiar_frame_video(self, direccion):
+        if not self.frames_video_actual:
+            return
+
+        nuevo_indice = self.indice_frame_video_actual + direccion
+
+        if nuevo_indice < 0:
+            nuevo_indice = 0
+
+        if nuevo_indice >= len(self.frames_video_actual):
+            nuevo_indice = len(self.frames_video_actual) - 1
+
+        self.indice_frame_video_actual = nuevo_indice
+        self.mostrar_frame_video_actual()
+
+    def mostrar_frame_video_actual(self):
+        if not self.frames_video_actual:
+            return
+
+        frame_info = self.frames_video_actual[self.indice_frame_video_actual]
+
+        self.mostrar_imagen(
+            frame_info["ruta_evidencia"]
+        )
+
+        self.mostrar_detecciones_frame_video(
+            frame_info
+        )
+
+        total_frames = len(self.frames_video_actual)
+        frame_actual = self.indice_frame_video_actual + 1
+
+        self.label_frame_video.config(
+            text=f"Frame {frame_actual} de {total_frames}"
+        )
+
+        self.boton_frame_anterior.config(
+            state=tk.NORMAL if self.indice_frame_video_actual > 0 else tk.DISABLED
+        )
+
+        self.boton_frame_siguiente.config(
+            state=(
+                tk.NORMAL
+                if self.indice_frame_video_actual < total_frames - 1
+                else tk.DISABLED
+            )
+        )
+
+        detecciones = frame_info["detecciones"]
+
+        if detecciones:
+            self.imagenes_exportacion_actuales = [
+                frame_info["imagen_id"]
+            ]
+
+            self.boton_agregar_exportacion.config(
+                state=tk.NORMAL,
+                text="Agregar a exportación"
+            )
+        else:
+            self.imagenes_exportacion_actuales = []
+
+            self.boton_agregar_exportacion.config(
+                state=tk.DISABLED,
+                text="Agregar a exportación"
+            )
+
+    def mostrar_detecciones_frame_video(self, frame_info):
+        self.texto_resultados.config(
+            state="normal"
+        )
+
+        self.texto_resultados.delete(
+            "1.0",
+            tk.END
+        )
+
+        detecciones = frame_info["detecciones"]
+
+        encabezado = (
+            "Detecciones del frame actual\n\n"
+            f"Frame original: {frame_info['frame']}\n"
+            f"Segundo aproximado: {frame_info['segundo']}s\n"
+            f"Detecciones encontradas: {len(detecciones)}\n\n"
+        )
+
+        self.texto_resultados.insert(
+            tk.END,
+            encabezado
+        )
+
+        if not detecciones:
+            self.texto_resultados.insert(
+                tk.END,
+                "No se detectaron señales en este frame."
+            )
+        else:
+            for indice, deteccion in enumerate(detecciones, start=1):
+                self.texto_resultados.insert(
+                    tk.END,
+                    f"Detección {indice}\n"
+                )
+
+                self.texto_resultados.insert(
+                    tk.END,
+                    f"Tipo: {deteccion.tipo_senal}\n"
+                )
+
+                self.texto_resultados.insert(
+                    tk.END,
+                    f"Confianza: {deteccion.confianza:.2f}\n\n"
+                )
+
+        self.texto_resultados.config(
+            state="disabled"
+        )
 
     def ejecutar(self):
 

@@ -18,10 +18,7 @@ class ExportadorDataset:
         self.images_dir = self.export_dir / "images" / "train"
         self.labels_dir = self.export_dir / "labels" / "train"
 
-        self.images_dir.mkdir(parents=True, exist_ok=True)
-        self.labels_dir.mkdir(parents=True, exist_ok=True)
-
-        self.clases = self._obtener_clases_modelo()
+        self.clases = self._cargar_clases()
         self.nombre_a_id = {
             nombre: clase_id for clase_id, nombre in self.clases.items()
         }
@@ -31,10 +28,32 @@ class ExportadorDataset:
 
         if solo_aprobadas:
             ids_aprobadas = self.almacenamiento.obtener_imagenes_para_exportacion()
+
+            if not ids_aprobadas:
+                return {
+                    "imagenes_exportadas": 0,
+                    "etiquetas_exportadas": 0,
+                    "ruta_exportacion": str(self.export_dir)
+                }
+
             imagenes = [
                 imagen for imagen in imagenes
                 if imagen["id"] in ids_aprobadas
             ]
+
+        imagenes = [
+            imagen for imagen in imagenes
+            if Path(imagen["ruta"]).exists()
+        ]
+
+        if not imagenes:
+            return {
+                "imagenes_exportadas": 0,
+                "etiquetas_exportadas": 0,
+                "ruta_exportacion": str(self.export_dir)
+            }
+
+        self._preparar_directorios()
 
         detecciones = self.almacenamiento.obtener_detecciones()
         etiquetas = self.almacenamiento.obtener_etiquetas()
@@ -211,17 +230,6 @@ class ExportadorDataset:
         nuevo_alto = y2 - y1
 
         return x1, y1, nuevo_ancho, nuevo_alto
-    
-    def _obtener_clases_modelo(self):
-        nombres = getattr(self.modelo, "names", {})
-
-        if isinstance(nombres, dict):
-            return {int(clase_id): nombre for clase_id, nombre in nombres.items()}
-
-        if isinstance(nombres, list):
-            return {clase_id: nombre for clase_id, nombre in enumerate(nombres)}
-
-        return self._cargar_clases()
 
     def _generar_dataset_yaml(self):
         contenido = {
@@ -240,3 +248,7 @@ class ExportadorDataset:
                 allow_unicode=True,
                 sort_keys=False
             )
+
+    def _preparar_directorios(self):
+        self.images_dir.mkdir(parents=True, exist_ok=True)
+        self.labels_dir.mkdir(parents=True, exist_ok=True)
