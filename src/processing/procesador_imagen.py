@@ -97,7 +97,7 @@ class ProcesadorImagen:
         size: Optional[Tuple[int, int]] = (640, 640)
     ) -> Dict:
         imagen_original = self.cargar_imagen(ruta)
-        entidad_imagen = self.crear_entidad_imagen(ruta, imagen_id)
+        metadata_original = self.obtener_metadata(ruta, imagen_original)
 
         imagen_procesada = self.redimensionar(imagen_original, size)
 
@@ -107,8 +107,26 @@ class ProcesadorImagen:
             nombre_salida
         )
 
+        alto_procesado, ancho_procesado = imagen_procesada.shape[:2]
+
+        metadata = {
+            **metadata_original,
+            "ruta_original": ruta,
+            "ruta_procesada": ruta_procesada,
+            "resolucion_original": f"{metadata_original['ancho']}x{metadata_original['alto']}",
+            "resolucion_procesada": f"{ancho_procesado}x{alto_procesado}"
+        }
+
+        entidad_imagen = Imagen(
+            id=imagen_id,
+            ruta=ruta_procesada,
+            fecha_captura=metadata_original["fecha_carga"],
+            resolucion=f"{ancho_procesado}x{alto_procesado}",
+            metadata=metadata
+        )
+
         return {
             "imagen": entidad_imagen,
             "ruta_procesada": ruta_procesada,
-            "metadata": entidad_imagen.metadata
+            "metadata": metadata
         }

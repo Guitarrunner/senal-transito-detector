@@ -8,6 +8,8 @@ class GestorAlmacenamiento:
         self.metadata_dir = Path(metadata_dir)
         self.metadata_dir.mkdir(parents=True, exist_ok=True)
 
+        self.export_queue_path = self.metadata_dir / "export_queue.json"
+
         self.imagenes_path = self.metadata_dir / "imagenes.json"
         self.detecciones_path = self.metadata_dir / "detecciones.json"
         self.etiquetas_path = self.metadata_dir / "etiquetas.json"
@@ -15,12 +17,16 @@ class GestorAlmacenamiento:
         self._inicializar_archivo(self.imagenes_path)
         self._inicializar_archivo(self.detecciones_path)
         self._inicializar_archivo(self.etiquetas_path)
+        self._inicializar_archivo(self.export_queue_path)
 
     def _inicializar_archivo(self, ruta):
         if not ruta.exists():
             self._guardar_json(ruta, [])
 
     def _leer_json(self, ruta):
+        if not ruta.exists():
+            self._guardar_json(ruta, [])
+
         with open(ruta, "r", encoding="utf-8") as archivo:
             return json.load(archivo)
 
@@ -124,3 +130,21 @@ class GestorAlmacenamiento:
             distribucion[tipo] = distribucion.get(tipo, 0) + 1
 
         return distribucion
+    
+    def marcar_imagen_para_exportacion(self, imagen_id: str):
+        ids = self._leer_json(self.export_queue_path)
+
+        if imagen_id not in ids:
+            ids.append(imagen_id)
+
+        self._guardar_json(self.export_queue_path, ids)
+
+        return True
+
+
+    def obtener_imagenes_para_exportacion(self):
+        return self._leer_json(self.export_queue_path)
+
+
+    def limpiar_cola_exportacion(self):
+        self._guardar_json(self.export_queue_path, [])

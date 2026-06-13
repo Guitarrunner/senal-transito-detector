@@ -9,7 +9,11 @@ class Login:
     def __init__(self):
         self.ventana = tk.Tk()
         self.ventana.title("Inicio de sesión")
-        self.ventana.geometry("350x220")
+        self.ventana.geometry("850x620")
+
+        self.centrar_ventana(850, 620)
+
+        self.ventana.bind("<Return>", lambda event: self.validar_login())
 
         self.control_acceso = ControlAcceso()
 
@@ -25,7 +29,7 @@ class Login:
 
         self.usuario_entry = tk.Entry(self.ventana)
         self.usuario_entry.pack(pady=5)
-        self.usuario_entry.insert(0, "admin")
+        self.usuario_entry.focus_set()
 
         self.password_entry = tk.Entry(
             self.ventana,
@@ -39,6 +43,21 @@ class Login:
             command=self.validar_login
         )
         boton.pack(pady=15)
+
+    def centrar_ventana(self, ancho=400, alto=300):
+        self.ventana.update_idletasks()
+
+        ancho_pantalla = self.ventana.winfo_screenwidth()
+        alto_pantalla = self.ventana.winfo_screenheight()
+
+        x = (ancho_pantalla // 2) - (ancho // 2)
+        y = (alto_pantalla // 2) - (alto // 2)
+
+        self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+        self.ventana.lift()
+        self.ventana.attributes("-topmost", True)
+        self.ventana.after(500, lambda: self.ventana.attributes("-topmost", False))
+        self.ventana.focus_force()
 
     def validar_login(self):
         usuario = self.usuario_entry.get()

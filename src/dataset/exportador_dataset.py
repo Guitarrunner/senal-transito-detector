@@ -1,11 +1,19 @@
 import shutil
 from pathlib import Path
 
+import yaml
+
 
 class ExportadorDataset:
-    def __init__(self, almacenamiento, export_dir: str = "exports/yolo_dataset"):
+    def __init__(
+        self,
+        almacenamiento,
+        export_dir: str = "exports/yolo_dataset",
+        dataset_yaml_path: str = "dataset/dataset.yaml"
+    ):
         self.almacenamiento = almacenamiento
         self.export_dir = Path(export_dir)
+        self.dataset_yaml_path = Path(dataset_yaml_path)
 
         self.images_dir = self.export_dir / "images" / "train"
         self.labels_dir = self.export_dir / "labels" / "train"
@@ -13,8 +21,21 @@ class ExportadorDataset:
         self.images_dir.mkdir(parents=True, exist_ok=True)
         self.labels_dir.mkdir(parents=True, exist_ok=True)
 
-    def exportar(self):
+        self.clases = self._obtener_clases_modelo()
+        self.nombre_a_id = {
+            nombre: clase_id for clase_id, nombre in self.clases.items()
+        }
+
+    def exportar(self,solo_aprobadas=True):
         imagenes = self.almacenamiento.obtener_imagenes()
+
+        if solo_aprobadas:
+            ids_aprobadas = self.almacenamiento.obtener_imagenes_para_exportacion()
+            imagenes = [
+                imagen for imagen in imagenes
+                if imagen["id"] in ids_aprobadas
+            ]
+
         detecciones = self.almacenamiento.obtener_detecciones()
         etiquetas = self.almacenamiento.obtener_etiquetas()
 
@@ -44,6 +65,20 @@ class ExportadorDataset:
             "ruta_exportacion": str(self.export_dir)
         }
 
+    def _cargar_clases(self):
+        if not self.dataset_yaml_path.exists():
+            return {0: "objeto_detectado"}
+
+        with open(self.dataset_yaml_path, "r", encoding="utf-8") as archivo:
+            datos = yaml.safe_load(archivo)
+
+        nombres = datos.get("names", {})
+
+        if isinstance(nombres, dict):
+            return {int(clase_id): nombre for clase_id, nombre in nombres.items()}
+
+        return {clase_id: nombre for clase_id, nombre in enumerate(nombres)}
+
     def _agrupar_detecciones_por_imagen(self, detecciones):
         agrupadas = {}
 
@@ -72,7 +107,7 @@ class ExportadorDataset:
         if not ruta_origen.exists():
             return False
 
-        extension = ruta_origen.suffix
+        extension = ruta_origen.suffix.lower()
         ruta_destino = self.images_dir / f'{imagen["id"]}{extension}'
 
         shutil.copyfile(ruta_origen, ruta_destino)
@@ -100,6 +135,11 @@ class ExportadorDataset:
             if etiqueta is None:
                 continue
 
+            clase_id = self._convertir_tipo_a_clase(deteccion["tipo_senal"])
+
+            if clase_id is None:
+                continue
+
             bbox = etiqueta["bounding_box"]
 
             x = bbox["x"]
@@ -107,12 +147,22 @@ class ExportadorDataset:
             ancho = bbox["ancho"]
             alto = bbox["alto"]
 
+            x, y, ancho, alto = self._ajustar_bbox(
+                x,
+                y,
+                ancho,
+                alto,
+                ancho_img,
+                alto_img
+            )
+
+            if ancho <= 0 or alto <= 0:
+                continue
+
             x_centro = (x + ancho / 2) / ancho_img
             y_centro = (y + alto / 2) / alto_img
             ancho_norm = ancho / ancho_img
             alto_norm = alto / alto_img
-
-            clase_id = self._convertir_tipo_a_clase(deteccion["tipo_senal"])
 
             linea = (
                 f"{clase_id} "
@@ -134,21 +184,59 @@ class ExportadorDataset:
         return int(ancho), int(alto)
 
     def _convertir_tipo_a_clase(self, tipo_senal):
+        """
+        Permite exportar tanto detecciones guardadas con número de clase
+        como detecciones guardadas con nombre de clase.
+        """
+        tipo = str(tipo_senal)
+
         try:
-            return int(tipo_senal)
+            clase_id = int(tipo)
+            if clase_id in self.clases:
+                return clase_id
+            return None
         except ValueError:
-            return 0
+            return self.nombre_a_id.get(tipo)
+
+    def _ajustar_bbox(self, x, y, ancho, alto, ancho_img, alto_img):
+        """
+        Evita que una caja se salga de la imagen.
+        """
+        x1 = max(0, x)
+        y1 = max(0, y)
+        x2 = min(ancho_img, x + ancho)
+        y2 = min(alto_img, y + alto)
+
+        nuevo_ancho = x2 - x1
+        nuevo_alto = y2 - y1
+
+        return x1, y1, nuevo_ancho, nuevo_alto
+    
+    def _obtener_clases_modelo(self):
+        nombres = getattr(self.modelo, "names", {})
+
+        if isinstance(nombres, dict):
+            return {int(clase_id): nombre for clase_id, nombre in nombres.items()}
+
+        if isinstance(nombres, list):
+            return {clase_id: nombre for clase_id, nombre in enumerate(nombres)}
+
+        return self._cargar_clases()
 
     def _generar_dataset_yaml(self):
-        contenido = """path: exports/yolo_dataset
-train: images/train
-val: images/train
-
-names:
-  0: objeto_detectado
-"""
+        contenido = {
+            "path": str(self.export_dir),
+            "train": "images/train",
+            "val": "images/train",
+            "names": self.clases
+        }
 
         ruta_yaml = self.export_dir / "dataset.yaml"
 
         with open(ruta_yaml, "w", encoding="utf-8") as archivo:
-            archivo.write(contenido)
+            yaml.safe_dump(
+                contenido,
+                archivo,
+                allow_unicode=True,
+                sort_keys=False
+            )
