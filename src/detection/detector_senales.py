@@ -5,12 +5,15 @@ import uuid
 
 
 class DetectorSenales:
-    def __init__(self, modelo_path: str = "yolov8n.pt", confianza_minima: float = 0.5):
+    def __init__(self, modelo_path: str = "runs/detect/senales_cr_v3/weights/best.pt", confianza_minima: float = 0.5):
         self.modelo = YOLO(modelo_path)
         self.confianza_minima = confianza_minima
 
     def detectar(self, ruta_imagen: str, imagen_id: str):
-        resultados = self.modelo(ruta_imagen)
+        resultados = self.modelo(ruta_imagen,
+            conf=0.25,
+            iou=0.45,
+            agnostic_nms=True)
         detecciones = []
         etiquetas = []
 

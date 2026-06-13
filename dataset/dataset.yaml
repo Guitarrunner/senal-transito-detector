@@ -4,4 +4,38 @@ val: images/val
 test: images/test
 
 names:
-  0: alto
+  0: velocidad_maxima
+  1: parada_buses
+  2: parada_taxis
+  3: estacionamiento
+  4: no_hay_paso
+  5: no_estacionar
+  6: silencio
+  7: ceda
+  8: alto
+  9: no_virar_izquierda
+  10: no_virar_derecha
+  11: curva_derecha
+  12: curva_izquierda
+  13: transeunte
+  14: zona_escolar
+  15: precaucion
+  16: semaforo
+  17: pendiente
+  18: reductor_velocidad
+  19: dos_carriles_a_uno
+  20: interseccion
+  21: tren
+  22: reductores_de_velocidad
+  23: informacion
+  24: turismo
+  25: obras
+  26: lugares
+  27: rotonda
+  28: giro_amplio
+  29: no_vehiculos_pesados
+  30: carril_reversible
+  31: carril_exclusivo
+  32: delineador_curva
+  33: obstaculo
+  34: altura_maxima
