@@ -9,7 +9,6 @@ class Login:
     def __init__(self):
         self.ventana = tk.Tk()
         self.ventana.title("Inicio de sesión")
-        self.ventana.geometry("850x620")
 
         self.centrar_ventana(850, 620)
 
@@ -68,17 +67,38 @@ class Login:
 
             self.ventana.destroy()
 
-            app = InterfazVisualizacion()
-            app.label_estado.config(
-                text=f"Sesión iniciada como: {rol}"
-            )
-            app.ejecutar()
+            match rol:
+                case "CAMPO":
+
+                    app = InterfazVisualizacion(rol)
+                    app.label_estado.config(
+                        text=f"Sesión iniciada como: {rol}"
+                    )
+                    app.ejecutar()
+                case "OPERADOR":
+                
+                    app = InterfazVisualizacion(rol)
+                    app.label_estado.config(
+                        text=f"Sesión iniciada como: {rol}"
+                    )
+                    app.ejecutar()
+                case "ADMINISTRADOR":
+                
+                    app = InterfazVisualizacion(rol)
+                    app.label_estado.config(
+                        text=f"Sesión iniciada como: {rol}"
+                    )
+                    app.ejecutar()
+                
+
 
         else:
             messagebox.showerror(
                 "Acceso denegado",
                 "Usuario o contraseña incorrectos."
             )
+            self.usuario_entry.delete(0, tk.END)
+            self.password_entry.delete(0, tk.END)
 
     def ejecutar(self):
         self.ventana.mainloop()

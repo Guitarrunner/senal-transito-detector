@@ -11,9 +11,10 @@ from src.detection.detector_senales import DetectorSenales
 from src.visualization.visualizador_resultados import VisualizadorResultados
 from src.storage.gestor_almacenamiento import GestorAlmacenamiento
 from src.processing.procesador_video import ProcesadorVideo
+from src.domain.rolUsuario import RolUsuario
 class InterfazVisualizacion:
 
-    def __init__(self):
+    def __init__(self, rol: RolUsuario):
 
         self.ventana = tk.Tk()
 

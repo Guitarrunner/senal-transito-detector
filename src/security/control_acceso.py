@@ -7,12 +7,17 @@ class ControlAcceso:
         self.usuarios = {
             "admin": {
                 "password": "admin123",
-                "rol": "Administrador"
+                "rol": "ADMINISTRADOR"
             },
             "operador": {
                 "password": "operador123",
-                "rol": "Usuario operativo"
+                "rol": "OPERADOR"
+            },
+            "campo": {
+                "password": "campo123",
+                "rol": "CAMPO"
             }
+
         }
 
     def validar_acceso(self, usuario: str, password: str):
