@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
 
+from src.domain.rol_usuario import RolUsuario
 from src.security.control_acceso import ControlAcceso
+from src.ui.interfaz_gestion import InterfazGestion
 from src.ui.interfaz_visualizacion import InterfazVisualizacion
 from src.domain.usuario import Usuario
 
@@ -63,31 +65,24 @@ class Login:
         password = self.password_entry.get()
 
         usuario_autenticado = self.control_acceso.autenticar(usuario, password) 
-        
+
         if usuario_autenticado is not None:
 
             self.ventana.destroy()
 
             match usuario_autenticado.rol:
-                case "CAMPO":
+                case RolUsuario.CAMPO:
 
                     app = InterfazVisualizacion(usuario_autenticado)
                     app.label_estado.config(
-                        text=f"Sesión iniciada como: {usuario_autenticado.rol}"
+                        text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )
                     app.ejecutar()
-                case "OPERADOR":
+                case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
                 
-                    app = InterfazVisualizacion(usuario_autenticado)
+                    app = InterfazGestion(usuario_autenticado)
                     app.label_estado.config(
-                        text=f"Sesión iniciada como: {usuario_autenticado.rol}"
-                    )
-                    app.ejecutar()
-                case "ADMINISTRADOR":
-                
-                    app = InterfazVisualizacion(usuario_autenticado)
-                    app.label_estado.config(
-                        text=f"Sesión iniciada como: {usuario_autenticado.rol}"
+                        text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )
                     app.ejecutar()
                 
