@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict
-from rolUsuario import RolUsuario
+from src.domain.rol_usuario import RolUsuario
 
 
 @dataclass

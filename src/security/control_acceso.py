@@ -1,3 +1,6 @@
+from src.domain.rol_usuario import RolUsuario
+from src.domain.usuario import Usuario
+
 class ControlAcceso:
     """
     Control de acceso básico para entorno local.
@@ -6,28 +9,36 @@ class ControlAcceso:
     def __init__(self):
         self.usuarios = {
             "admin": {
+                "id": "usuario-001",
                 "password": "admin123",
-                "rol": "ADMINISTRADOR"
+                "rol": RolUsuario.ADMINISTRADOR
             },
             "operador": {
+                "id": "usuario-002",
                 "password": "operador123",
-                "rol": "OPERADOR"
+                "rol": RolUsuario.OPERADOR
             },
             "campo": {
+                "id": "usuario-003",
                 "password": "campo123",
-                "rol": "CAMPO"
+                "rol": RolUsuario.CAMPO
             }
 
         }
 
-    def validar_acceso(self, usuario: str, password: str):
-        if usuario not in self.usuarios:
-            return False
-
-        return self.usuarios[usuario]["password"] == password
-
-    def obtener_rol(self, usuario: str):
-        if usuario not in self.usuarios:
+    def autenticar(self, nombre_usuario: str, password: str):
+        if nombre_usuario not in self.usuarios:
             return None
 
-        return self.usuarios[usuario]["rol"]
+        datos_usuario = self.usuarios[nombre_usuario]
+
+        if datos_usuario["password"] != password:
+            return None
+
+        usuario_autenticado = Usuario(
+            id=datos_usuario["id"],
+            nombre_usuario=nombre_usuario,
+            rol=datos_usuario["rol"]
+        )
+
+        return usuario_autenticado
