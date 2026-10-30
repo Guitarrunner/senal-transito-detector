@@ -3,3 +3,8 @@ numpy
 ultralytics
 pillow
 pyyaml
+
+sqlalchemy
+psycopg[binary]
+python-dotenv
+alembic
