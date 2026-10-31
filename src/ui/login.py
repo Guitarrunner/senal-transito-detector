@@ -71,11 +71,6 @@ class Login:
                 password
             )
 
-            cliente_api = ClienteGestion(
-                self.control_acceso.access_token,
-                on_sesion_expirada=self.cerrar_sesion
-            )
-
         except RuntimeError as error:
             messagebox.showerror(
                 "Error de conexión",
@@ -87,6 +82,10 @@ class Login:
 
             self.ventana.destroy()
 
+            cliente_api = ClienteGestion(
+                            self.control_acceso.access_token
+                        )
+
             match usuario_autenticado.rol:
                 case RolUsuario.CAMPO:
 
@@ -97,8 +96,14 @@ class Login:
                     app.ejecutar()
                 case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
                 
-                    app = InterfazGestion(usuario_autenticado,
-                                            cliente_api)
+                    app = InterfazGestion(
+                        usuario_autenticado,
+                        cliente_api
+                    )
+
+                    cliente_api.on_sesion_expirada = (
+                        app.cerrar_sesion_expirada
+)
                     app.label_estado.config(
                         text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )

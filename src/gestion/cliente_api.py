@@ -11,14 +11,14 @@ load_dotenv()
 
 class ClienteGestion:
 
-    def __init__(self, access_token: str):
+    def __init__(self, access_token: str, on_sesion_expirada=None):
         self.api_url = os.getenv(
             "GESTION_API_URL",
             "http://127.0.0.1:8000"
         )
 
         self.access_token = access_token
-
+        self.on_sesion_expirada = on_sesion_expirada
         self.sesion = requests.Session()
 
     def _headers(self):
@@ -35,14 +35,24 @@ class ClienteGestion:
             if self.on_sesion_expirada:
                 self.on_sesion_expirada()
 
-            raise SesionExpiradaError("La sesión expiró.")
+            raise SesionExpiradaError(
+                "La sesión expiró."
+            )
 
-        respuesta.raise_for_status()
+        if respuesta.ok:
+            return
 
-        if respuesta.status_code == 204:
-            return None
+        try:
+            detalle = respuesta.json().get(
+                "detail",
+                "Error desconocido."
+            )
+        except ValueError:
+            detalle = respuesta.text
 
-        return respuesta.json()
+        raise RuntimeError(
+            f"Error {respuesta.status_code}: {detalle}"
+        )
 
     def listar_datasets(self):
         respuesta = self.sesion.get(
