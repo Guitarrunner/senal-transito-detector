@@ -77,3 +77,12 @@ class AnotacionRespuesta(BaseModel):
     bbox_y2: int
 
     fecha_creacion: datetime
+
+class ErrorCargaImagen(BaseModel):
+    nombre_archivo: str
+    error: str
+
+
+class CargaImagenesBulkRespuesta(BaseModel):
+    cargadas: list[ImagenDatasetRespuesta]
+    errores: list[ErrorCargaImagen]

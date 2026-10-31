@@ -6,6 +6,7 @@ from src.security.control_acceso import ControlAcceso
 from src.ui.interfaz_gestion import InterfazGestion
 from src.ui.interfaz_visualizacion import InterfazVisualizacion
 from src.domain.usuario import Usuario
+from src.gestion.cliente_api import ClienteGestion
 
 class Login:
     def __init__(self):
@@ -70,6 +71,10 @@ class Login:
                 password
             )
 
+            cliente_api = ClienteGestion(
+                self.control_acceso.access_token
+            )
+
         except RuntimeError as error:
             messagebox.showerror(
                 "Error de conexión",
@@ -91,7 +96,8 @@ class Login:
                     app.ejecutar()
                 case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
                 
-                    app = InterfazGestion(usuario_autenticado)
+                    app = InterfazGestion(usuario_autenticado,
+                                            cliente_api)
                     app.label_estado.config(
                         text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )

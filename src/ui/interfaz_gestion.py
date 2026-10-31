@@ -2,13 +2,22 @@ import tkinter as tk
 
 from src.domain.usuario import Usuario
 from src.domain.rol_usuario import RolUsuario
+from src.gestion.cliente_api import ClienteGestion
+from src.ui.etiquetador_dataset import EtiquetadorDataset
 
 
 class InterfazGestion:
 
-    def __init__(self, usuario_autenticado: Usuario):
+    def __init__(
+            self,
+            usuario_autenticado: Usuario,
+            cliente_api: ClienteGestion
+        ):
 
         self.usuario_autenticado = usuario_autenticado
+        self.cliente_api = cliente_api
+
+        self.contenido_actual = None
 
         self.ventana = tk.Tk()
 
@@ -16,9 +25,7 @@ class InterfazGestion:
             "Sistema de Gestión de Señales"
         )
 
-        self.ventana.geometry("1200x750")
-
-        self.centrar_ventana(1200, 750)
+        self.centrar_ventana(1400,850)
 
         self._crear_componentes()
 
@@ -378,16 +385,36 @@ class InterfazGestion:
 
     def mostrar_dataset(self):
 
+        self._limpiar_contenido_actual()
+
         self.titulo_contenido.config(
-            text="Dataset"
+            text="Etiquetado de dataset"
         )
 
-        self.texto_contenido.config(
-            text=(
-                "Aquí se gestionará la información "
-                "relacionada con el dataset."
+        self.texto_contenido.pack_forget()
+
+        self.contenido_actual = EtiquetadorDataset(
+            self.frame_contenido,
+            cliente_api=self.cliente_api,
+            callback_estado=lambda mensaje: (
+                self.label_estado.config(
+                    text=mensaje
+                )
             )
         )
+
+        self.contenido_actual.pack(
+            fill="both",
+            expand=True,
+            padx=5,
+            pady=5
+        )
+
+    def _limpiar_contenido_actual(self):
+
+        if self.contenido_actual is not None:
+            self.contenido_actual.destroy()
+            self.contenido_actual = None
 
 
     def ejecutar(self):

@@ -14,7 +14,6 @@ app = FastAPI(
 )
 
 app.include_router(autenticacion_router)
-app.include_router(autenticacion_router)
 app.include_router(clases_router)
 app.include_router(datasets_router)
 app.include_router(imagenes_router)

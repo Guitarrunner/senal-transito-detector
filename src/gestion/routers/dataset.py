@@ -13,6 +13,8 @@ from src.gestion.esquemas import (
     DatasetCrear,
     DatasetRespuesta,
     ImagenDatasetRespuesta,
+    ErrorCargaImagen,
+    CargaImagenesBulkRespuesta
 )
 from src.gestion.modelos import UsuarioBD
 from src.gestion.seguridad import requerir_roles
@@ -200,3 +202,78 @@ def obtener_imagenes_dataset(
         )
         for imagen in imagenes
     ]
+
+@router.post(
+    "/{dataset_id}/imagenes/bulk",
+    response_model=CargaImagenesBulkRespuesta,
+    status_code=status.HTTP_201_CREATED
+)
+async def subir_imagenes_bulk(
+    dataset_id: uuid.UUID,
+    archivos: list[UploadFile] = File(...),
+    sesion: Session = Depends(obtener_sesion),
+    usuario: UsuarioBD = Depends(
+        requerir_roles(
+            RolUsuario.ADMINISTRADOR
+        )
+    )
+):
+    dataset = obtener_dataset(
+        sesion,
+        dataset_id
+    )
+
+    if dataset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset no encontrado."
+        )
+
+    cargadas = []
+    errores = []
+
+    for archivo in archivos:
+
+        contenido = await archivo.read()
+
+        try:
+            imagen = guardar_imagen_dataset(
+                sesion=sesion,
+                dataset=dataset,
+                nombre_original=(
+                    archivo.filename
+                    or "imagen"
+                ),
+                contenido=contenido,
+                grupo_fisico=None
+            )
+
+            cargadas.append(
+                ImagenDatasetRespuesta(
+                    id=imagen.id,
+                    dataset_id=imagen.dataset_id,
+                    nombre_archivo=imagen.nombre_archivo,
+                    ancho=imagen.ancho,
+                    alto=imagen.alto,
+                    conjunto=imagen.conjunto,
+                    grupo_fisico=imagen.grupo_fisico,
+                    evidencia_id=imagen.evidencia_id,
+                    fecha_agregada=imagen.fecha_agregada
+                )
+            )
+
+        except ValueError as error:
+            errores.append(
+                ErrorCargaImagen(
+                    nombre_archivo=(
+                        archivo.filename
+                        or "imagen"
+                    ),
+                    error=str(error)
+                )
+            )
+
+    return CargaImagenesBulkRespuesta(
+        cargadas=cargadas,
+        errores=errores
+    )
