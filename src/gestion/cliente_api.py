@@ -29,20 +29,20 @@ class ClienteGestion:
         }
 
     def _procesar_respuesta(self, respuesta):
-        if respuesta.ok:
-            return
+        if respuesta.status_code == 401:
+            self.access_token = None
 
-        try:
-            detalle = respuesta.json().get(
-                "detail",
-                "Error desconocido."
-            )
-        except ValueError:
-            detalle = respuesta.text
+            if self.on_sesion_expirada:
+                self.on_sesion_expirada()
 
-        raise RuntimeError(
-            f"Error {respuesta.status_code}: {detalle}"
-        )
+            raise SesionExpiradaError("La sesión expiró.")
+
+        respuesta.raise_for_status()
+
+        if respuesta.status_code == 204:
+            return None
+
+        return respuesta.json()
 
     def listar_datasets(self):
         respuesta = self.sesion.get(
@@ -221,3 +221,6 @@ class ClienteGestion:
         finally:
             for archivo in archivos_abiertos:
                 archivo.close()
+
+class SesionExpiradaError(RuntimeError):
+    pass

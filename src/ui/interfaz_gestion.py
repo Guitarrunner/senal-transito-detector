@@ -1,4 +1,8 @@
+import os
 import tkinter as tk
+from tkinter import messagebox
+
+import requests
 
 from src.domain.usuario import Usuario
 from src.domain.rol_usuario import RolUsuario
@@ -416,7 +420,28 @@ class InterfazGestion:
             self.contenido_actual.destroy()
             self.contenido_actual = None
 
+    def cerrar_sesion_expirada(self):
+        self.control_acceso.access_token = None
+        messagebox.showwarning(
+            "Sesión expirada",
+            "Tu sesión ha expirado. Debes iniciar sesión nuevamente."
+        )
+
+        self.root.destroy()
+
 
     def ejecutar(self):
 
         self.ventana.mainloop()
+
+class ClienteGestion:
+
+    def __init__(self, access_token, on_sesion_expirada=None):
+        self.api_url = os.getenv(
+            "GESTION_API_URL",
+            "http://127.0.0.1:8000"
+        )
+
+        self.access_token = access_token
+        self.on_sesion_expirada = on_sesion_expirada
+        self.session = requests.Session()

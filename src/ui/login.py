@@ -72,7 +72,8 @@ class Login:
             )
 
             cliente_api = ClienteGestion(
-                self.control_acceso.access_token
+                self.control_acceso.access_token,
+                on_sesion_expirada=self.cerrar_sesion
             )
 
         except RuntimeError as error:
