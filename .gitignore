@@ -27,6 +27,7 @@ dataset/labels/test/*
 !dataset/labels/test/.gitkeep
 !dataset/dataset.yaml
 
+datasets/*
 !datasets
 
 exports/*
