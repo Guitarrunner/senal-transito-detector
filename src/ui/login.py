@@ -64,7 +64,18 @@ class Login:
         usuario = self.usuario_entry.get()
         password = self.password_entry.get()
 
-        usuario_autenticado = self.control_acceso.autenticar(usuario, password) 
+        try:
+            usuario_autenticado = self.control_acceso.autenticar(
+                usuario,
+                password
+            )
+
+        except RuntimeError as error:
+            messagebox.showerror(
+                "Error de conexión",
+                str(error)
+            )
+            return
 
         if usuario_autenticado is not None:
 

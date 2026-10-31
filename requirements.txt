@@ -10,3 +10,10 @@ python-dotenv
 alembic
 
 bcrypt
+
+fastapi
+uvicorn
+requests
+PyJWT
+python-multipart
+pillow-heif

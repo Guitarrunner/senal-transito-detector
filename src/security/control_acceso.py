@@ -1,5 +1,13 @@
+import os
+
+import requests
+from dotenv import load_dotenv
+
 from src.domain.rol_usuario import RolUsuario
 from src.domain.usuario import Usuario
+
+
+load_dotenv()
 
 class ControlAcceso:
     """
@@ -7,38 +15,50 @@ class ControlAcceso:
     """
 
     def __init__(self):
-        self.usuarios = {
-            "admin": {
-                "id": "usuario-001",
-                "password": "admin123",
-                "rol": RolUsuario.ADMINISTRADOR
-            },
-            "operador": {
-                "id": "usuario-002",
-                "password": "operador123",
-                "rol": RolUsuario.OPERADOR
-            },
-            "campo": {
-                "id": "usuario-003",
-                "password": "campo123",
-                "rol": RolUsuario.CAMPO
-            }
-
-        }
-
-    def autenticar(self, nombre_usuario: str, password: str):
-        if nombre_usuario not in self.usuarios:
-            return None
-
-        datos_usuario = self.usuarios[nombre_usuario]
-
-        if datos_usuario["password"] != password:
-            return None
-
-        usuario_autenticado = Usuario(
-            id=datos_usuario["id"],
-            nombre_usuario=nombre_usuario,
-            rol=datos_usuario["rol"]
+        self.api_url = os.getenv(
+            "GESTION_API_URL",
+            "http://127.0.0.1:8000"
         )
 
-        return usuario_autenticado
+        self.access_token = None
+        
+
+    def autenticar(
+        self,
+        nombre_usuario: str,
+        password: str
+    ) -> Usuario | None:
+
+        try:
+            respuesta = requests.post(
+                f"{self.api_url}/auth/login",
+                json={
+                    "nombre_usuario": nombre_usuario,
+                    "password": password
+                },
+                timeout=5
+            )
+
+        except requests.RequestException as error:
+            raise RuntimeError(
+                "No se pudo conectar con la API de gestión."
+            ) from error
+
+        if respuesta.status_code == 401:
+            return None
+
+        respuesta.raise_for_status()
+
+        datos = respuesta.json()
+
+        self.access_token = datos["access_token"]
+
+        datos_usuario = datos["usuario"]
+        
+        return Usuario(
+            id=str(datos_usuario["id"]),
+            nombre_usuario=datos_usuario["nombre_usuario"],
+            rol=RolUsuario(
+                datos_usuario["rol"]
+            )
+)
