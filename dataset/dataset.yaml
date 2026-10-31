@@ -6,17 +6,16 @@ test: images/test
 names:
   0: alto
   1: ceda
-  2: estacinameinto
-  3: nostacionamiento
-  4: noizq
-  5: nopaso
-  6:
+  2: estacionamiento
+  3: no_estacionamiento
+  4: no_izquierda
+  5: no_paso
+  6: ???
   7: peaton
   8: tren
-  9: semador
+  9: semaforo
   10: reductor
   11: escolar
   12: kilometro
   13: lugar
   14: gasolinera
-
