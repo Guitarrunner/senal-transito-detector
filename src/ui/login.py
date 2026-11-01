@@ -80,7 +80,6 @@ class Login:
 
         if usuario_autenticado is not None:
 
-            self.ventana.destroy()
 
             cliente_api = ClienteGestion(
                             self.control_acceso.access_token
@@ -95,20 +94,42 @@ class Login:
                     )
                     app.ejecutar()
                 case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
-                
+
+                    self.ventana.withdraw()
+                    
                     app = InterfazGestion(
+                        self.ventana,
                         usuario_autenticado,
                         cliente_api
                     )
 
                     cliente_api.on_sesion_expirada = (
                         app.cerrar_sesion_expirada
-)
+                    )
                     app.label_estado.config(
                         text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )
                     app.ejecutar()
-                
+
+                    if app.sesion_expirada:
+                        self.control_acceso.access_token = None
+
+                        self.usuario_entry.delete(
+                            0,
+                            tk.END
+                        )
+
+                        self.password_entry.delete(
+                            0,
+                            tk.END
+                        )
+
+                        self.ventana.deiconify()
+                        self.ventana.lift()
+                        self.usuario_entry.focus_set()
+
+                    else:
+                        self.ventana.destroy()
 
 
         else:

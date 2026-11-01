@@ -4,7 +4,10 @@ from tkinter import filedialog, messagebox, ttk
 
 from PIL import Image, ImageTk
 
-from src.gestion.cliente_api import ClienteGestion
+from src.gestion.cliente_api import (
+    ClienteGestion,
+    SesionExpiradaError
+)
 
 
 class EtiquetadorDataset(tk.Frame):
@@ -393,6 +396,9 @@ class EtiquetadorDataset(tk.Frame):
                 self.cliente_api.listar_clases()
             )
 
+        except SesionExpiradaError:
+            return
+
         except RuntimeError as error:
             messagebox.showerror(
                 "Error",
@@ -587,7 +593,8 @@ class EtiquetadorDataset(tk.Frame):
         )
 
         self.imagen_tk = ImageTk.PhotoImage(
-            imagen_redimensionada
+            imagen_redimensionada,
+            master=self.canvas
         )
 
         self.offset_x = max(

@@ -11,16 +11,18 @@ class InterfazGestion:
 
     def __init__(
             self,
+            parent,
             usuario_autenticado: Usuario,
             cliente_api: ClienteGestion
         ):
 
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
+        self.sesion_expirada = False
 
         self.contenido_actual = None
 
-        self.ventana = tk.Tk()
+        self.ventana = tk.Toplevel(parent)
 
         self.ventana.title(
             "Sistema de Gestión de Señales"
@@ -418,6 +420,8 @@ class InterfazGestion:
             self.contenido_actual = None
 
     def cerrar_sesion_expirada(self):
+        self.sesion_expirada = True
+
         messagebox.showwarning(
             "Sesión expirada",
             "Tu sesión ha expirado. Debes iniciar sesión nuevamente."
