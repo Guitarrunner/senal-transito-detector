@@ -86,3 +86,22 @@ class ErrorCargaImagen(BaseModel):
 class CargaImagenesBulkRespuesta(BaseModel):
     cargadas: list[ImagenDatasetRespuesta]
     errores: list[ErrorCargaImagen]
+
+class EstadisticaAnotacionesRespuesta(BaseModel):
+    clase_senal_id: int
+    clase_codigo: int
+    clase_nombre: str
+    imagenes_con_clase: int
+    cantidad_anotaciones: int
+
+class ExportacionYoloRespuesta(
+    BaseModel
+):
+    ruta_dataset: str
+    ruta_yaml: str
+
+    imagenes_train: int
+    imagenes_val: int
+    imagenes_test: int
+
+    imagenes_omitidas: int

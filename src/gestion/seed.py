@@ -80,10 +80,8 @@ def crear_clases_iniciales(sesion):
         (3, "no_estacionamiento", "Reglamentación"),
         (4, "no_izquierda", "Reglamentación"),
         (5, "no_paso", "Reglamentación"),
-
-        # Falta definir la clase 6
-        # (6, "...", "Prevención"),
-
+        
+        (6, "desvio" "Prevención"),
         (7, "peaton", "Prevención"),
         (8, "tren", "Prevención"),
         (9, "semaforo", "Prevención"),

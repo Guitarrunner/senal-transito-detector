@@ -94,6 +94,15 @@ class EtiquetadorDataset(tk.Frame):
             padx=5
         )
 
+        tk.Button(
+            frame_superior,
+            text="Estadísticas",
+            command=self._mostrar_estadisticas
+        ).pack(
+            side="left",
+            padx=5
+        )
+
         # ===== CONTENIDO =====
 
         cuerpo = tk.Frame(self)
@@ -1278,4 +1287,146 @@ class EtiquetadorDataset(tk.Frame):
         self.canvas.xview_scroll(
             int(-event.delta),
             "units"
+        )
+
+    def _mostrar_estadisticas(self):
+
+        indice_dataset = (
+            self.combo_dataset.current()
+        )
+
+        if indice_dataset < 0:
+            messagebox.showwarning(
+                "Sin dataset",
+                "Seleccione un dataset."
+            )
+            return
+
+        dataset = self.datasets[
+            indice_dataset
+        ]
+
+        try:
+            estadisticas = (
+                self.cliente_api
+                .obtener_estadisticas_anotaciones(
+                    dataset["id"]
+                )
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+            messagebox.showerror(
+                "Error",
+                str(error)
+            )
+            return
+
+        ventana = tk.Toplevel(self)
+
+        ventana.title(
+            "Estadísticas del dataset"
+        )
+
+        tabla = ttk.Treeview(
+            ventana,
+            columns=(
+                "codigo",
+                "clase",
+                "imagenes",
+                "anotaciones"
+            ),
+            show="headings"
+        )
+
+        tabla.heading(
+            "codigo",
+            text="Código"
+        )
+
+        tabla.heading(
+            "clase",
+            text="Clase"
+        )
+
+        tabla.heading(
+            "imagenes",
+            text="Imágenes"
+        )
+
+        tabla.heading(
+            "anotaciones",
+            text="Anotaciones"
+        )
+
+        tabla.column(
+            "codigo",
+            width=70,
+            anchor="center"
+        )
+
+        tabla.column(
+            "clase",
+            width=180
+        )
+
+        tabla.column(
+            "imagenes",
+            width=100,
+            anchor="center"
+        )
+
+        tabla.column(
+            "anotaciones",
+            width=110,
+            anchor="center"
+        )
+
+        total_anotaciones = 0
+
+        for estadistica in estadisticas:
+
+            tabla.insert(
+                "",
+                tk.END,
+                values=(
+                    estadistica[
+                        "clase_codigo"
+                    ],
+                    estadistica[
+                        "clase_nombre"
+                    ],
+                    estadistica[
+                        "imagenes_con_clase"
+                    ],
+                    estadistica[
+                        "cantidad_anotaciones"
+                    ]
+                )
+            )
+
+            total_anotaciones += (
+                estadistica[
+                    "cantidad_anotaciones"
+                ]
+            )
+
+        tabla.pack(
+            padx=15,
+            pady=15,
+            fill="both",
+            expand=True
+        )
+
+        tk.Label(
+            ventana,
+            text=(
+                f"Total de anotaciones: "
+                f"{total_anotaciones}"
+            ),
+            font=("Arial", 11, "bold")
+        ).pack(
+            pady=(0, 15)
         )

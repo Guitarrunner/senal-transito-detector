@@ -14,7 +14,9 @@ from src.gestion.esquemas import (
     DatasetRespuesta,
     ImagenDatasetRespuesta,
     ErrorCargaImagen,
-    CargaImagenesBulkRespuesta
+    CargaImagenesBulkRespuesta,
+    EstadisticaAnotacionesRespuesta,
+    ExportacionYoloRespuesta,
 )
 from src.gestion.modelos import UsuarioBD
 from src.gestion.seguridad import requerir_roles
@@ -24,6 +26,10 @@ from src.gestion.servicios.dataset import (
     listar_datasets as listar_datasets_servicio,
     listar_imagenes_dataset,
     obtener_dataset,
+    obtener_estadisticas_anotaciones
+)
+from src.gestion.servicios.exportacion_yolo import (
+    exportar_dataset_yolo
 )
 
 from fastapi import (
@@ -276,4 +282,93 @@ async def subir_imagenes_bulk(
     return CargaImagenesBulkRespuesta(
         cargadas=cargadas,
         errores=errores
+    )
+
+@router.get(
+    "/{dataset_id}/estadisticas-anotaciones",
+    response_model=list[
+        EstadisticaAnotacionesRespuesta
+    ]
+)
+def estadisticas_anotaciones_dataset(
+    dataset_id: uuid.UUID,
+    sesion: Session = Depends(obtener_sesion),
+    usuario: UsuarioBD = Depends(
+        requerir_roles(
+            RolUsuario.ADMINISTRADOR
+        )
+    )
+):
+    dataset = obtener_dataset(
+        sesion,
+        dataset_id
+    )
+
+    if dataset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset no encontrado."
+        )
+
+    estadisticas = (
+        obtener_estadisticas_anotaciones(
+            sesion,
+            dataset_id
+        )
+    )
+
+    return [
+        EstadisticaAnotacionesRespuesta(
+            clase_senal_id=(
+                fila.clase_senal_id
+            ),
+            clase_codigo=(
+                fila.clase_codigo
+            ),
+            clase_nombre=(
+                fila.clase_nombre
+            ),
+            imagenes_con_clase=(
+                fila.imagenes_con_clase
+            ),
+            cantidad_anotaciones=(
+                fila.cantidad_anotaciones
+            )
+        )
+        for fila in estadisticas
+    ]
+
+@router.post(
+    "/{dataset_id}/exportar-yolo",
+    response_model=ExportacionYoloRespuesta
+)
+def exportar_yolo(
+    dataset_id: uuid.UUID,
+    sesion: Session = Depends(
+        obtener_sesion
+    ),
+    usuario: UsuarioBD = Depends(
+        requerir_roles(
+            RolUsuario.ADMINISTRADOR
+        )
+    )
+):
+    try:
+        resultado = (
+            exportar_dataset_yolo(
+                sesion,
+                dataset_id
+            )
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(error)
+        )
+
+    return ExportacionYoloRespuesta(
+        **resultado
     )

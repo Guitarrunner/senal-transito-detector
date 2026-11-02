@@ -432,4 +432,4 @@ class InterfazGestion:
 
     def ejecutar(self):
 
-        self.ventana.mainloop()
+        self.ventana.wait_window()

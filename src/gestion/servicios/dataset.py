@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from io import BytesIO
@@ -13,6 +13,8 @@ from pillow_heif import register_heif_opener
 from src.gestion.modelos import (
     DatasetBD,
     ImagenDatasetBD,
+    AnotacionBD,
+    ClaseSenalBD
 )
 
 register_heif_opener()
@@ -302,3 +304,81 @@ def listar_imagenes_dataset(
     return list(
         sesion.scalars(consulta).all()
     )
+
+def obtener_estadisticas_anotaciones(
+    sesion: Session,
+    dataset_id: uuid.UUID
+):
+    conteos = (
+        select(
+            AnotacionBD.clase_senal_id.label(
+                "clase_senal_id"
+            ),
+            func.count(
+                func.distinct(
+                    AnotacionBD.imagen_id
+                )
+            ).label(
+                "imagenes_con_clase"
+            ),
+            func.count(
+                AnotacionBD.id
+            ).label(
+                "cantidad_anotaciones"
+            )
+        )
+        .join(
+            ImagenDatasetBD,
+            ImagenDatasetBD.id
+            == AnotacionBD.imagen_id
+        )
+        .where(
+            ImagenDatasetBD.dataset_id
+            == dataset_id
+        )
+        .group_by(
+            AnotacionBD.clase_senal_id
+        )
+        .subquery()
+    )
+
+    consulta = (
+        select(
+            ClaseSenalBD.id.label(
+                "clase_senal_id"
+            ),
+            ClaseSenalBD.codigo.label(
+                "clase_codigo"
+            ),
+            ClaseSenalBD.nombre.label(
+                "clase_nombre"
+            ),
+            func.coalesce(
+                conteos.c.imagenes_con_clase,
+                0
+            ).label(
+                "imagenes_con_clase"
+            ),
+            func.coalesce(
+                conteos.c.cantidad_anotaciones,
+                0
+            ).label(
+                "cantidad_anotaciones"
+            )
+        )
+        .outerjoin(
+            conteos,
+            conteos.c.clase_senal_id
+            == ClaseSenalBD.id
+        )
+        .where(
+            ClaseSenalBD.activa.is_(True)
+        )
+        .order_by(
+            ClaseSenalBD.codigo
+        )
+    )
+
+    return sesion.execute(
+        consulta
+    ).all()

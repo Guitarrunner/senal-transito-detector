@@ -127,6 +127,26 @@ class ClienteGestion:
 
         return respuesta.json()
 
+    def obtener_estadisticas_anotaciones(
+        self,
+        dataset_id: str
+    ):
+        respuesta = self.sesion.get(
+            (
+                f"{self.api_url}"
+                f"/datasets/{dataset_id}"
+                f"/estadisticas-anotaciones"
+            ),
+            headers=self._headers(),
+            timeout=10
+        )
+
+        self._procesar_respuesta(
+            respuesta
+        )
+
+        return respuesta.json()
+
     def crear_anotacion(
         self,
         imagen_id: str,
