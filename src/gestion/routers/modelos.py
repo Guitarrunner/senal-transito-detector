@@ -130,6 +130,10 @@ def iniciar_entrenamiento(
             detail=str(error)
         )
 
+    iniciar_proceso_entrenamiento(
+        entrenamiento.id
+    )
+
     return _crear_respuesta(
         entrenamiento
     )

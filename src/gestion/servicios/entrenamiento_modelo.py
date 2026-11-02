@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-import requests
 import torch
 import multiprocessing
 from sqlalchemy import select
@@ -134,61 +133,32 @@ def crear_entrenamiento(
 
 
 def obtener_entrenamiento(
-    self,
-    entrenamiento_id: str
-):
+    sesion: Session,
+    entrenamiento_id: uuid.UUID
+) -> EntrenamientoModeloBD | None:
 
-    try:
-        respuesta = self.sesion.get(
-            (
-                f"{self.api_url}"
-                "/modelos/entrenamientos/"
-                f"{entrenamiento_id}"
-            ),
-            headers=self._headers(),
-            timeout=10
-        )
-
-    except requests.RequestException as error:
-        raise RuntimeError(
-            (
-                "No se pudo consultar "
-                "el entrenamiento."
-            )
-        ) from error
-
-    self._procesar_respuesta(
-        respuesta
+    return sesion.get(
+        EntrenamientoModeloBD,
+        entrenamiento_id
     )
 
-    return respuesta.json()
 
+def listar_entrenamientos(
+    sesion: Session
+) -> list[EntrenamientoModeloBD]:
 
-def listar_entrenamientos(self):
-
-    try:
-        respuesta = self.sesion.get(
-            (
-                f"{self.api_url}"
-                "/modelos/entrenamientos"
-            ),
-            headers=self._headers(),
-            timeout=10
-        )
-
-    except requests.RequestException as error:
-        raise RuntimeError(
-            (
-                "No se pudo consultar el estado "
-                "de los entrenamientos."
+    return list(
+        sesion.scalars(
+            select(
+                EntrenamientoModeloBD
             )
-        ) from error
-
-    self._procesar_respuesta(
-        respuesta
+            .order_by(
+                EntrenamientoModeloBD
+                .fecha_creacion
+                .desc()
+            )
+        ).all()
     )
-
-    return respuesta.json()
 
 
 def ejecutar_entrenamiento(
