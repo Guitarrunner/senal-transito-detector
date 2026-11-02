@@ -111,7 +111,10 @@ class Login:
                     )
                     app.ejecutar()
 
-                    if app.sesion_expirada:
+                    if (
+                            app.sesion_expirada
+                            or app.sesion_cerrada
+                        ):
                         self.control_acceso.access_token = None
 
                         self.usuario_entry.delete(

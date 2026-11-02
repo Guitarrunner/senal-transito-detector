@@ -187,3 +187,7 @@ class VersionModeloRespuesta(BaseModel):
 
     activo: bool
     fecha_entrenamiento: datetime
+
+class TokenRespuesta(BaseModel):
+    access_token: str
+    token_type: str

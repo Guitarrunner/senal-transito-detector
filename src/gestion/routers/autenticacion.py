@@ -5,6 +5,7 @@ from src.gestion.base_datos import obtener_sesion
 from src.gestion.esquemas import (
     LoginEntrada,
     LoginRespuesta,
+    TokenRespuesta,
     UsuarioAutenticadoRespuesta,
 )
 from src.gestion.modelos import UsuarioBD
@@ -68,4 +69,22 @@ def obtener_mi_usuario(
         id=usuario.id,
         nombre_usuario=usuario.nombre_usuario,
         rol=usuario.rol
+    )
+
+@router.post(
+    "/renovar",
+    response_model=TokenRespuesta
+)
+def renovar_token(
+    usuario: UsuarioBD = Depends(
+        obtener_usuario_actual
+    )
+):
+    access_token = crear_access_token(
+        usuario.id
+    )
+
+    return TokenRespuesta(
+        access_token=access_token,
+        token_type="bearer"
     )

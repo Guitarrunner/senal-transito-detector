@@ -430,7 +430,7 @@ class GestionModelos(tk.Frame):
                 "estado",
             ),
             show="headings",
-            height=8
+            height=5
         )
 
         columnas = {
@@ -503,23 +503,23 @@ class GestionModelos(tk.Frame):
             anchor="center"
         )
 
+        self.boton_activar_modelo = ttk.Button(
+            frame_modelos,
+            text="Activar modelo seleccionado",
+            command=self._activar_modelo
+        )
+
+        self.boton_activar_modelo.pack(
+            anchor="e",
+            padx=10,
+            pady=(8, 3)
+        )
+
         self.tabla_modelos.pack(
             fill="both",
             expand=True,
             padx=5,
-            pady=5
-        )
-
-        self.boton_activar_modelo = (
-            ttk.Button(
-                frame_modelos,
-                text="Activar modelo seleccionado",
-                command=self._activar_modelo
-            )
-        )
-
-        self.boton_activar_modelo.pack(
-            pady=(5, 10)
+            pady=(3, 5)
         )
 
     def _cargar_datasets(self):

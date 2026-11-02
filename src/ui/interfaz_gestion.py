@@ -3,7 +3,7 @@ from tkinter import messagebox
 
 from src.domain.usuario import Usuario
 from src.domain.rol_usuario import RolUsuario
-from src.gestion.cliente_api import ClienteGestion
+from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.ui.etiquetador_dataset import EtiquetadorDataset
 from src.ui.gestion_modelos import GestionModelos
 
@@ -19,6 +19,7 @@ class InterfazGestion:
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
         self.sesion_expirada = False
+        self.sesion_cerrada = False
 
         self.contenido_actual = None
 
@@ -32,6 +33,21 @@ class InterfazGestion:
 
         self._crear_componentes()
 
+        self.verificacion_sesion_programada = None
+
+        self.ventana.bind(
+            "<ButtonPress>",
+            self._registrar_actividad,
+            add="+"
+        )
+
+        self.ventana.bind(
+            "<KeyPress>",
+            self._registrar_actividad,
+            add="+"
+        )
+
+        self._programar_verificacion_sesion()
 
     def _crear_componentes(self):
 
@@ -178,6 +194,18 @@ class InterfazGestion:
             pady=20
         )
 
+        boton_cerrar_sesion = tk.Button(
+            sidebar,
+            text="Cerrar sesión",
+            command=self.cerrar_sesion,
+            height=2,
+            width=25
+        )
+
+        boton_cerrar_sesion.pack(
+            side="bottom",
+            pady=15
+        )
 
         # ===== ÁREA DE CONTENIDO =====
 
@@ -447,3 +475,79 @@ class InterfazGestion:
     def ejecutar(self):
 
         self.ventana.wait_window()
+
+    def _registrar_actividad(
+        self,
+        event=None
+    ):
+        self.cliente_api.registrar_actividad()
+
+
+    def _programar_verificacion_sesion(
+        self
+    ):
+        self.verificacion_sesion_programada = (
+            self.ventana.after(
+                60000,
+                self._verificar_sesion
+            )
+        )
+
+
+    def _verificar_sesion(self):
+
+        if not self.ventana.winfo_exists():
+            return
+
+        try:
+            renovada = (
+                self.cliente_api
+                .renovar_sesion_si_necesario()
+            )
+
+            if renovada:
+                self.label_estado.config(
+                    text=(
+                        "Sesión renovada "
+                        "por actividad."
+                    )
+                )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+            self.label_estado.config(
+                text=str(error)
+            )
+
+        self._programar_verificacion_sesion()
+
+    def cerrar_sesion(self):
+
+        confirmar = messagebox.askyesno(
+            "Cerrar sesión",
+            "¿Desea cerrar la sesión actual?"
+        )
+
+        if not confirmar:
+            return
+
+        self.sesion_cerrada = True
+
+        self.cliente_api.access_token = None
+
+        self.cliente_api.sesion.close()
+
+        if (
+            self.verificacion_sesion_programada
+            is not None
+        ):
+            try:
+                self.ventana.after_cancel(
+                    self.verificacion_sesion_programada
+                )
+            except tk.TclError:
+                pass
+
+        self.ventana.destroy()

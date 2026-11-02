@@ -1,4 +1,6 @@
 import os
+import time
+import jwt
 
 import requests
 import mimetypes
@@ -20,6 +22,7 @@ class ClienteGestion:
         self.access_token = access_token
         self.on_sesion_expirada = on_sesion_expirada
         self.sesion = requests.Session()
+        self.ultima_actividad = time.monotonic()
 
     def _headers(self):
         return {
@@ -363,5 +366,87 @@ class ClienteGestion:
 
         return respuesta.json()
 
+    def registrar_actividad(self):
+        self.ultima_actividad = (
+            time.monotonic()
+        )
+
+
+    def _segundos_hasta_expirar(self):
+
+        if not self.access_token:
+            return None
+
+        try:
+            payload = jwt.decode(
+                self.access_token,
+                options={
+                    "verify_signature": False,
+                    "verify_exp": False,
+                }
+            )
+
+            expiracion = payload.get(
+                "exp"
+            )
+
+            if expiracion is None:
+                return None
+
+            return (
+                float(expiracion)
+                - time.time()
+            )
+
+        except jwt.InvalidTokenError:
+            return None
+
+
+    def renovar_sesion_si_necesario(
+        self,
+        margen_segundos: int = 600,
+        actividad_max_segundos: int = 600
+    ) -> bool:
+
+        # Si el usuario no ha utilizado
+        # la aplicación recientemente,
+        # dejamos que la sesión expire.
+        tiempo_inactivo = (
+            time.monotonic()
+            - self.ultima_actividad
+        )
+
+        if (
+            tiempo_inactivo
+            > actividad_max_segundos
+        ):
+            return False
+
+        segundos_restantes = (
+            self._segundos_hasta_expirar()
+        )
+
+        if segundos_restantes is None:
+            return False
+
+        # Todavía falta suficiente tiempo.
+        if (
+            segundos_restantes
+            > margen_segundos
+        ):
+            return False
+
+        respuesta = self._request(
+            "POST",
+            "/auth/renovar"
+        )
+
+        datos = respuesta.json()
+
+        self.access_token = (
+            datos["access_token"]
+        )
+
+        return True
 class SesionExpiradaError(RuntimeError):
     pass
