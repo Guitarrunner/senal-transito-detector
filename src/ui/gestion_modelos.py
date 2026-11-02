@@ -29,12 +29,14 @@ class GestionModelos(tk.Frame):
 
         self.datasets = []
         self.entrenamientos = []
+        self.modelos = []
 
         self.actualizacion_programada = None
 
         self._crear_componentes()
         self._cargar_datasets()
         self._cargar_entrenamientos()
+        self._cargar_modelos()
 
         self._programar_actualizacion()
 
@@ -302,13 +304,13 @@ class GestionModelos(tk.Frame):
 
         frame_historial.pack(
             fill="both",
-            expand=True,
             padx=10,
             pady=10
         )
 
         self.tabla = ttk.Treeview(
             frame_historial,
+            height=5,
             columns=(
                 "version",
                 "modelo",
@@ -402,6 +404,124 @@ class GestionModelos(tk.Frame):
             pady=5
         )
 
+        frame_modelos = ttk.LabelFrame(
+            self,
+            text="Modelos entrenados"
+        )
+
+        frame_modelos.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=10
+        )
+
+        self.tabla_modelos = ttk.Treeview(
+            frame_modelos,
+            columns=(
+                "version",
+                "dataset",
+                "precision",
+                "recall",
+                "map50",
+                "map5095",
+                "latencia",
+                "fps",
+                "estado",
+            ),
+            show="headings",
+            height=8
+        )
+
+        columnas = {
+            "version": "Versión",
+            "dataset": "Dataset",
+            "precision": "Precisión",
+            "recall": "Recall",
+            "map50": "mAP50",
+            "map5095": "mAP50-95",
+            "latencia": "Latencia ms",
+            "fps": "FPS",
+            "estado": "Estado",
+        }
+
+        for columna, titulo in columnas.items():
+            self.tabla_modelos.heading(
+                columna,
+                text=titulo
+            )
+
+        self.tabla_modelos.column(
+            "version",
+            width=100
+        )
+
+        self.tabla_modelos.column(
+            "dataset",
+            width=160
+        )
+
+        self.tabla_modelos.column(
+            "precision",
+            width=90,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "recall",
+            width=90,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "map50",
+            width=90,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "map5095",
+            width=100,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "latencia",
+            width=100,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "fps",
+            width=80,
+            anchor="center"
+        )
+
+        self.tabla_modelos.column(
+            "estado",
+            width=90,
+            anchor="center"
+        )
+
+        self.tabla_modelos.pack(
+            fill="both",
+            expand=True,
+            padx=5,
+            pady=5
+        )
+
+        self.boton_activar_modelo = (
+            ttk.Button(
+                frame_modelos,
+                text="Activar modelo seleccionado",
+                command=self._activar_modelo
+            )
+        )
+
+        self.boton_activar_modelo.pack(
+            pady=(5, 10)
+        )
+
     def _cargar_datasets(self):
 
         try:
@@ -454,6 +574,28 @@ class GestionModelos(tk.Frame):
 
         self._actualizar_tabla()
         self._actualizar_progreso()
+
+    def _cargar_modelos(self):
+
+        try:
+            self.modelos = (
+                self.cliente_api
+                .listar_modelos()
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+
+            if self.callback_estado:
+                self.callback_estado(
+                    str(error)
+                )
+
+            return
+
+        self._actualizar_tabla_modelos()
 
     def _actualizar_tabla(self):
 
@@ -710,6 +852,7 @@ class GestionModelos(tk.Frame):
             return
 
         self._cargar_entrenamientos()
+        self._cargar_modelos()
 
         self._programar_actualizacion()
 
@@ -727,3 +870,199 @@ class GestionModelos(tk.Frame):
                 pass
 
         super().destroy()
+
+    def _nombre_dataset(
+        self,
+        dataset_id: str
+    ) -> str:
+
+        for dataset in self.datasets:
+
+            if (
+                str(dataset["id"])
+                == str(dataset_id)
+            ):
+                return dataset["nombre"]
+
+        return str(dataset_id)[:8]
+
+
+    def _formatear_metrica(
+        self,
+        valor,
+        decimales=3
+    ):
+
+        if valor is None:
+            return "-"
+
+        return f"{valor:.{decimales}f}"
+
+    def _actualizar_tabla_modelos(self):
+
+        for item in (
+            self.tabla_modelos
+            .get_children()
+        ):
+            self.tabla_modelos.delete(
+                item
+            )
+
+        for modelo in self.modelos:
+
+            estado = (
+                "ACTIVO"
+                if modelo["activo"]
+                else "Inactivo"
+            )
+
+            dataset_nombre = (
+                self._nombre_dataset(
+                    modelo["dataset_id"]
+                )
+            )
+
+            self.tabla_modelos.insert(
+                "",
+                tk.END,
+
+                # Usamos el UUID real como ID
+                # de la fila.
+                iid=str(
+                    modelo["id"]
+                ),
+
+                values=(
+                    modelo["version"],
+
+                    dataset_nombre,
+
+                    self._formatear_metrica(
+                        modelo["precision"]
+                    ),
+
+                    self._formatear_metrica(
+                        modelo["recall"]
+                    ),
+
+                    self._formatear_metrica(
+                        modelo["map_50"]
+                    ),
+
+                    self._formatear_metrica(
+                        modelo["map_50_95"]
+                    ),
+
+                    self._formatear_metrica(
+                        modelo[
+                            "latencia_promedio_ms"
+                        ],
+                        2
+                    ),
+
+                    self._formatear_metrica(
+                        modelo["fps"],
+                        1
+                    ),
+
+                    estado
+                )
+            )
+
+    def _activar_modelo(self):
+
+        seleccion = (
+            self.tabla_modelos
+            .selection()
+        )
+
+        if not seleccion:
+            messagebox.showwarning(
+                "Modelo",
+                (
+                    "Seleccione un modelo "
+                    "para activar."
+                )
+            )
+            return
+
+        modelo_id = seleccion[0]
+
+        modelo = next(
+            (
+                modelo
+                for modelo in self.modelos
+                if str(modelo["id"])
+                == modelo_id
+            ),
+            None
+        )
+
+        if modelo is None:
+            return
+
+        if modelo["activo"]:
+
+            messagebox.showinfo(
+                "Modelo activo",
+                (
+                    f"La versión "
+                    f"{modelo['version']} "
+                    "ya se encuentra activa."
+                )
+            )
+
+            return
+
+        confirmar = messagebox.askyesno(
+            "Activar modelo",
+            (
+                "¿Desea activar esta versión?\n\n"
+                f"Versión: "
+                f"{modelo['version']}\n"
+                f"mAP50: "
+                f"{self._formatear_metrica(modelo['map_50'])}\n"
+                f"mAP50-95: "
+                f"{self._formatear_metrica(modelo['map_50_95'])}\n\n"
+                "El modelo actualmente activo "
+                "será reemplazado."
+            )
+        )
+
+        if not confirmar:
+            return
+
+        try:
+            self.cliente_api.activar_modelo(
+                modelo_id
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+            messagebox.showerror(
+                "Error",
+                str(error)
+            )
+            return
+
+        self._cargar_modelos()
+
+        if self.callback_estado:
+            self.callback_estado(
+                (
+                    "Modelo "
+                    f"{modelo['version']} "
+                    "activado."
+                )
+            )
+
+        messagebox.showinfo(
+            "Modelo activado",
+            (
+                f"La versión "
+                f"{modelo['version']} "
+                "es ahora el modelo activo."
+            )
+        )

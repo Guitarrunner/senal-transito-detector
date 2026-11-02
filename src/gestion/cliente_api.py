@@ -338,5 +338,30 @@ class ClienteGestion:
 
         return respuesta
 
+    def listar_modelos(self):
+
+        respuesta = self._request(
+            "GET",
+            "/modelos"
+        )
+
+        return respuesta.json()
+
+
+    def activar_modelo(
+        self,
+        modelo_id: str
+    ):
+
+        respuesta = self._request(
+            "POST",
+            (
+                f"/modelos/"
+                f"{modelo_id}/activar"
+            )
+        )
+
+        return respuesta.json()
+
 class SesionExpiradaError(RuntimeError):
     pass
