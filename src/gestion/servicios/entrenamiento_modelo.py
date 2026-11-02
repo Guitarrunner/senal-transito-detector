@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import uuid
@@ -438,7 +439,7 @@ def ejecutar_entrenamiento(
         entrenamiento.fecha_fin = (
             datetime.now()
         )
-
+        entrenamiento.pid_proceso = None
         sesion.commit()
 
     except Exception as error:
@@ -463,7 +464,7 @@ def ejecutar_entrenamiento(
             entrenamiento.fecha_fin = (
                 datetime.now()
             )
-
+            entrenamiento.pid_proceso = None
             sesion.commit()
 
         print(
@@ -478,24 +479,115 @@ def ejecutar_entrenamiento(
         sesion.close()
 
 def iniciar_proceso_entrenamiento(
-    entrenamiento_id: uuid.UUID
-):
-    """
-    Ejecuta YOLO en un proceso independiente.
-
-    Así el entrenamiento no bloquea
-    el proceso de FastAPI.
-    """
-
-    contexto = multiprocessing.get_context(
-        "spawn"
-    )
-
-    proceso = contexto.Process(
-        target=ejecutar_entrenamiento,
-        args=(
-            entrenamiento_id,
+        entrenamiento_id: uuid.UUID
+    ):
+        contexto = multiprocessing.get_context(
+            "spawn"
         )
-    )
 
-    proceso.start()
+        proceso = contexto.Process(
+            target=ejecutar_entrenamiento,
+            args=(
+                entrenamiento_id,
+            )
+        )
+
+        proceso.start()
+
+        sesion = SessionLocal()
+
+        try:
+            entrenamiento = sesion.get(
+                EntrenamientoModeloBD,
+                entrenamiento_id
+            )
+
+            if entrenamiento is not None:
+                entrenamiento.pid_proceso = (
+                    proceso.pid
+                )
+
+                sesion.commit()
+
+        finally:
+            sesion.close()
+
+def proceso_esta_vivo(
+    pid: int | None
+) -> bool:
+
+    if pid is None:
+        return False
+
+    try:
+        os.kill(
+            pid,
+            0
+        )
+
+    except ProcessLookupError:
+        return False
+
+    except PermissionError:
+        return True
+
+    return True
+
+def recuperar_entrenamientos_interrumpidos():
+
+    sesion = SessionLocal()
+
+    try:
+        entrenamientos = list(
+            sesion.scalars(
+                select(
+                    EntrenamientoModeloBD
+                )
+                .where(
+                    EntrenamientoModeloBD
+                    .estado
+                    .in_(
+                        [
+                            EstadoEntrenamiento.PENDIENTE,
+                            EstadoEntrenamiento.ENTRENANDO,
+                        ]
+                    )
+                )
+            ).all()
+        )
+
+        cambios = False
+
+        for entrenamiento in entrenamientos:
+
+            if proceso_esta_vivo(
+                entrenamiento.pid_proceso
+            ):
+                continue
+
+            entrenamiento.estado = (
+                EstadoEntrenamiento.ERROR
+            )
+
+            entrenamiento.mensaje_error = (
+                "El entrenamiento fue interrumpido "
+                "antes de completarse."
+            )
+
+            entrenamiento.fecha_fin = (
+                datetime.now()
+            )
+
+            entrenamiento.pid_proceso = None
+
+            cambios = True
+
+        if cambios:
+            sesion.commit()
+
+    except Exception:
+        sesion.rollback()
+        raise
+
+    finally:
+        sesion.close()

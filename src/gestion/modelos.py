@@ -661,3 +661,8 @@ class EntrenamientoModeloBD(Base):
         ),
         nullable=True
     )
+
+    pid_proceso: Mapped[int | None] = mapped_column(
+    Integer,
+    nullable=True
+    )

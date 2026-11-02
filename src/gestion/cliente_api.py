@@ -55,13 +55,11 @@ class ClienteGestion:
         )
 
     def listar_datasets(self):
-        respuesta = self.sesion.get(
-            f"{self.api_url}/datasets",
-            headers=self._headers(),
-            timeout=10
-        )
 
-        self._procesar_respuesta(respuesta)
+        respuesta = self._request(
+            "GET",
+            "/datasets"
+        )
 
         return respuesta.json()
 
@@ -100,13 +98,11 @@ class ClienteGestion:
         return respuesta.content
 
     def listar_clases(self):
-        respuesta = self.sesion.get(
-            f"{self.api_url}/clases",
-            headers=self._headers(),
-            timeout=10
-        )
 
-        self._procesar_respuesta(respuesta)
+        respuesta = self._request(
+            "GET",
+            "/clases"
+        )
 
         return respuesta.json()
 
@@ -261,12 +257,10 @@ class ClienteGestion:
         imgsz: int,
         batch: int
     ):
-        respuesta = self.sesion.post(
-            (
-                f"{self.api_url}"
-                "/modelos/entrenamientos"
-            ),
-            headers=self._headers(),
+        respuesta = self._request(
+            "POST",
+            "/modelos/entrenamientos",
+            timeout=30,
             json={
                 "dataset_id": dataset_id,
                 "version": version,
@@ -274,29 +268,17 @@ class ClienteGestion:
                 "epocas": epocas,
                 "imgsz": imgsz,
                 "batch": batch
-            },
-            timeout=30
-        )
-
-        self._procesar_respuesta(
-            respuesta
+            }
         )
 
         return respuesta.json()
 
 
     def listar_entrenamientos(self):
-        respuesta = self.sesion.get(
-            (
-                f"{self.api_url}"
-                "/modelos/entrenamientos"
-            ),
-            headers=self._headers(),
-            timeout=10
-        )
 
-        self._procesar_respuesta(
-            respuesta
+        respuesta = self._request(
+            "GET",
+            "/modelos/entrenamientos"
         )
 
         return respuesta.json()
@@ -306,21 +288,55 @@ class ClienteGestion:
         self,
         entrenamiento_id: str
     ):
-        respuesta = self.sesion.get(
+        respuesta = self._request(
+            "GET",
             (
-                f"{self.api_url}"
                 "/modelos/entrenamientos/"
                 f"{entrenamiento_id}"
-            ),
-            headers=self._headers(),
-            timeout=10
+            )
         )
+
+        return respuesta.json()
+
+    def _request(
+        self,
+        metodo: str,
+        endpoint: str,
+        timeout: int = 10,
+        **kwargs
+    ):
+        try:
+            respuesta = self.sesion.request(
+                method=metodo,
+                url=(
+                    f"{self.api_url}"
+                    f"{endpoint}"
+                ),
+                headers=self._headers(),
+                timeout=timeout,
+                **kwargs
+            )
+
+        except requests.Timeout as error:
+            raise RuntimeError(
+                "La API tardó demasiado en responder."
+            ) from error
+
+        except requests.ConnectionError as error:
+            raise RuntimeError(
+                "No se pudo conectar con la API."
+            ) from error
+
+        except requests.RequestException as error:
+            raise RuntimeError(
+                "Ocurrió un error de comunicación con la API."
+            ) from error
 
         self._procesar_respuesta(
             respuesta
         )
 
-        return respuesta.json()
+        return respuesta
 
 class SesionExpiradaError(RuntimeError):
     pass
