@@ -252,5 +252,75 @@ class ClienteGestion:
             for archivo in archivos_abiertos:
                 archivo.close()
 
+    def iniciar_entrenamiento(
+        self,
+        dataset_id: str,
+        version: str,
+        modelo_base: str,
+        epocas: int,
+        imgsz: int,
+        batch: int
+    ):
+        respuesta = self.sesion.post(
+            (
+                f"{self.api_url}"
+                "/modelos/entrenamientos"
+            ),
+            headers=self._headers(),
+            json={
+                "dataset_id": dataset_id,
+                "version": version,
+                "modelo_base": modelo_base,
+                "epocas": epocas,
+                "imgsz": imgsz,
+                "batch": batch
+            },
+            timeout=30
+        )
+
+        self._procesar_respuesta(
+            respuesta
+        )
+
+        return respuesta.json()
+
+
+    def listar_entrenamientos(self):
+        respuesta = self.sesion.get(
+            (
+                f"{self.api_url}"
+                "/modelos/entrenamientos"
+            ),
+            headers=self._headers(),
+            timeout=10
+        )
+
+        self._procesar_respuesta(
+            respuesta
+        )
+
+        return respuesta.json()
+
+
+    def obtener_entrenamiento(
+        self,
+        entrenamiento_id: str
+    ):
+        respuesta = self.sesion.get(
+            (
+                f"{self.api_url}"
+                "/modelos/entrenamientos/"
+                f"{entrenamiento_id}"
+            ),
+            headers=self._headers(),
+            timeout=10
+        )
+
+        self._procesar_respuesta(
+            respuesta
+        )
+
+        return respuesta.json()
+
 class SesionExpiradaError(RuntimeError):
     pass

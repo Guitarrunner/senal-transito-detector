@@ -3,8 +3,14 @@ import uuid
 from pydantic import BaseModel
 from datetime import datetime
 
+from typing import Literal
+from pydantic import BaseModel, Field
+
+
 from src.domain.rol_usuario import RolUsuario
 from src.domain.conjunto_dataset import ConjuntoDataset
+from src.domain.estado_entrenamiento import EstadoEntrenamiento
+
 
 
 class LoginEntrada(BaseModel):
@@ -105,3 +111,79 @@ class ExportacionYoloRespuesta(
     imagenes_test: int
 
     imagenes_omitidas: int
+
+class EntrenamientoModeloCrear(BaseModel):
+    dataset_id: uuid.UUID
+
+    version: str = Field(
+        min_length=1,
+        max_length=50
+    )
+
+    modelo_base: Literal[
+        "yolov8n.pt",
+        "yolov8s.pt",
+        "yolov8m.pt",
+        "yolov8l.pt",
+        "yolov8x.pt",
+    ] = "yolov8n.pt"
+
+    epocas: int = Field(
+        default=50,
+        ge=1,
+        le=500
+    )
+
+    imgsz: int = Field(
+        default=640,
+        ge=320,
+        le=1280
+    )
+
+    batch: int = Field(
+        default=8,
+        ge=1,
+        le=128
+    )
+
+
+class EntrenamientoModeloRespuesta(BaseModel):
+    id: uuid.UUID
+    dataset_id: uuid.UUID
+    creado_por: uuid.UUID
+
+    version: str
+    modelo_base: str
+
+    epocas: int
+    imgsz: int
+    batch: int
+
+    estado: EstadoEntrenamiento
+    epoca_actual: int
+
+    mensaje_error: str | None
+
+    fecha_creacion: datetime
+    fecha_inicio: datetime | None
+    fecha_fin: datetime | None
+
+    version_modelo_id: uuid.UUID | None
+
+class VersionModeloRespuesta(BaseModel):
+    id: uuid.UUID
+    dataset_id: uuid.UUID
+
+    version: str
+    ruta_modelo: str
+
+    precision: float | None
+    recall: float | None
+    map_50: float | None
+    map_50_95: float | None
+
+    latencia_promedio_ms: float | None
+    fps: float | None
+
+    activo: bool
+    fecha_entrenamiento: datetime

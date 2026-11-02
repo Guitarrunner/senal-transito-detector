@@ -7,6 +7,8 @@ from src.gestion.routers.autenticacion import router as autenticacion_router
 from src.gestion.routers.clases import router as clases_router
 from src.gestion.routers.dataset import router as datasets_router
 from src.gestion.routers.imagenes import router as imagenes_router
+from src.gestion.routers.modelos import router as modelos_router
+
 
 app = FastAPI(
     title="API de Gestión de Señales de Tránsito",
@@ -17,6 +19,7 @@ app.include_router(autenticacion_router)
 app.include_router(clases_router)
 app.include_router(datasets_router)
 app.include_router(imagenes_router)
+app.include_router(modelos_router)
 
 @app.get("/salud")
 def salud():

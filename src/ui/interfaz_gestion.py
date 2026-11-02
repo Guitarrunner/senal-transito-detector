@@ -5,7 +5,7 @@ from src.domain.usuario import Usuario
 from src.domain.rol_usuario import RolUsuario
 from src.gestion.cliente_api import ClienteGestion
 from src.ui.etiquetador_dataset import EtiquetadorDataset
-
+from src.ui.gestion_modelos import GestionModelos
 
 class InterfazGestion:
 
@@ -374,15 +374,29 @@ class InterfazGestion:
 
     def mostrar_modelos(self):
 
+        self._limpiar_contenido_actual()
+
         self.titulo_contenido.config(
-            text="Modelos"
+            text="Gestión de modelos"
         )
 
-        self.texto_contenido.config(
-            text=(
-                "Aquí se gestionarán las versiones "
-                "del modelo."
+        self.texto_contenido.pack_forget()
+
+        self.contenido_actual = GestionModelos(
+            self.frame_contenido,
+            cliente_api=self.cliente_api,
+            callback_estado=lambda mensaje: (
+                self.label_estado.config(
+                    text=mensaje
+                )
             )
+        )
+
+        self.contenido_actual.pack(
+            fill="both",
+            expand=True,
+            padx=5,
+            pady=5
         )
 
 

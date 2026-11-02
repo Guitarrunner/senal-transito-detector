@@ -18,6 +18,7 @@ from src.domain.conjunto_dataset import ConjuntoDataset
 from src.domain.estado_revision import EstadoRevision
 from src.domain.rol_usuario import RolUsuario
 from src.gestion.base_datos import Base
+from src.domain.estado_entrenamiento import EstadoEntrenamiento
 
 class UsuarioBD(Base):
     __tablename__ = "usuarios"
@@ -548,4 +549,115 @@ class VersionModeloBD(Base):
         DateTime(timezone=True),
         nullable=False,
         default=datetime.now
+    )
+
+class EntrenamientoModeloBD(Base):
+    __tablename__ = "entrenamientos_modelo"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "datasets.id",
+            name=(
+                "fk_entrenamientos_modelo_"
+                "dataset_id_datasets"
+            )
+        ),
+        nullable=False
+    )
+
+    creado_por: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "usuarios.id",
+            name=(
+                "fk_entrenamientos_modelo_"
+                "creado_por_usuarios"
+            )
+        ),
+        nullable=False
+    )
+
+    version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+
+    modelo_base: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="yolov8n.pt"
+    )
+
+    epocas: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=50
+    )
+
+    imgsz: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=640
+    )
+
+    batch: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=8
+    )
+
+    estado: Mapped[
+        EstadoEntrenamiento
+    ] = mapped_column(
+        Enum(
+            EstadoEntrenamiento,
+            name="estado_entrenamiento"
+        ),
+        nullable=False,
+        default=EstadoEntrenamiento.PENDIENTE
+    )
+
+    epoca_actual: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    mensaje_error: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True
+    )
+
+    fecha_creacion: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.now
+    )
+
+    fecha_inicio: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    fecha_fin: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    version_modelo_id: Mapped[
+        uuid.UUID | None
+    ] = mapped_column(
+        ForeignKey(
+            "versiones_modelo.id",
+            name=(
+                "fk_entrenamientos_modelo_"
+                "version_modelo_id_versiones_modelo"
+            )
+        ),
+        nullable=True
     )

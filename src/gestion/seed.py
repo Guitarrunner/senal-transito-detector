@@ -81,7 +81,7 @@ def crear_clases_iniciales(sesion):
         (4, "no_izquierda", "Reglamentación"),
         (5, "no_paso", "Reglamentación"),
         
-        (6, "desvio" "Prevención"),
+        (6, "desvio", "Prevención"),
         (7, "peaton", "Prevención"),
         (8, "tren", "Prevención"),
         (9, "semaforo", "Prevención"),

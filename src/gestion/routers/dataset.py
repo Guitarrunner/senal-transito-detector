@@ -1,10 +1,5 @@
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    status,
-)
 from sqlalchemy.orm import Session
 
 from src.domain.rol_usuario import RolUsuario

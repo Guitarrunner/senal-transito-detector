@@ -36,6 +36,8 @@ exports/*
 models/*.pt
 !models/.gitkeep
 
+/modelos/
+
 *.pt
 *.onnx
 .DS_Store

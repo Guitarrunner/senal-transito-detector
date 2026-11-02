@@ -20,19 +20,9 @@ from src.gestion.modelos import (
     ClaseSenalBD,
 )
 
-
-# ==========================================================
-# CONFIGURACIÓN
-# ==========================================================
-
 CLASES_EXCLUIDAS = {
     "TREN"
 }
-
-
-# ==========================================================
-# FUNCIONES AUXILIARES
-# ==========================================================
 
 def _inferir_grupo_fisico(
     nombre_archivo: str
@@ -100,20 +90,11 @@ def _inferir_clase_grupo(
 
     return partes[0].upper()
 
-
-# ==========================================================
-# EXPORTACIÓN
-# ==========================================================
-
 def exportar_dataset_yolo(
     sesion: Session,
     dataset_id: uuid.UUID,
     semilla: int = 42
 ):
-
-    # ------------------------------------------------------
-    # 1. Validar dataset
-    # ------------------------------------------------------
 
     dataset = sesion.get(
         DatasetBD,
@@ -124,10 +105,6 @@ def exportar_dataset_yolo(
         raise ValueError(
             "Dataset no encontrado."
         )
-
-    # ------------------------------------------------------
-    # 2. Obtener imágenes
-    # ------------------------------------------------------
 
     imagenes = list(
         sesion.scalars(
@@ -151,10 +128,6 @@ def exportar_dataset_yolo(
         for imagen in imagenes
     ]
 
-    # ------------------------------------------------------
-    # 3. Obtener anotaciones
-    # ------------------------------------------------------
-
     anotaciones = list(
         sesion.scalars(
             select(
@@ -172,10 +145,6 @@ def exportar_dataset_yolo(
         raise ValueError(
             "El dataset no contiene anotaciones."
         )
-
-    # ------------------------------------------------------
-    # 4. Obtener solo clases utilizadas
-    # ------------------------------------------------------
 
     ids_clases_usadas = {
         anotacion.clase_senal_id
@@ -218,10 +187,6 @@ def exportar_dataset_yolo(
             )
         )
 
-    # ------------------------------------------------------
-    # 5. Crear IDs consecutivos para YOLO
-    # ------------------------------------------------------
-
     id_yolo_por_clase = {
         clase.id: indice
         for indice, clase in enumerate(
@@ -229,30 +194,11 @@ def exportar_dataset_yolo(
         )
     }
 
-    # Ejemplo:
-    #
-    # PostgreSQL:
-    # ALTO -> id 1
-    # CEDA -> id 2
-    # NOIZQ -> id 5
-    #
-    # YOLO:
-    # ALTO -> 0
-    # CEDA -> 1
-    # NOIZQ -> 2
-
-    # ------------------------------------------------------
-    # 6. Agrupar anotaciones por imagen
-    # ------------------------------------------------------
-
     anotaciones_por_imagen = (
         defaultdict(list)
     )
 
     for anotacion in anotaciones:
-
-        # Si la anotación pertenece a una clase
-        # excluida, no la consideramos.
 
         if (
             anotacion.clase_senal_id
@@ -266,21 +212,21 @@ def exportar_dataset_yolo(
             anotacion
         )
 
-    # ------------------------------------------------------
-    # 7. Agrupar imágenes por señal física
-    # ------------------------------------------------------
-
     grupos_por_clase = defaultdict(
         lambda: defaultdict(list)
     )
 
     imagenes_omitidas = 0
 
-    for imagen in imagenes:
-
-        # Si después de excluir ciertas clases
-        # la imagen no tiene anotaciones útiles,
-        # no se exporta.
+    for indice, imagen in enumerate(
+        imagenes,
+        start=1
+    ):
+        if indice % 25 == 0:
+            print(
+                f"Exportando imagen "
+                f"{indice}/{len(imagenes)}"
+            )
 
         if not anotaciones_por_imagen[
             imagen.id
@@ -319,16 +265,9 @@ def exportar_dataset_yolo(
             imagen
         )
 
-        # Normalizamos también el valor almacenado
-        # en la base de datos.
-
         imagen.grupo_fisico = (
             grupo_fisico
         )
-
-    # ------------------------------------------------------
-    # 8. Crear división TRAIN / VAL / TEST
-    # ------------------------------------------------------
 
     randomizador = random.Random(
         semilla
@@ -367,7 +306,6 @@ def exportar_dataset_yolo(
         )
 
         # Aproximadamente:
-        #
         # 70 % train
         # 15 % val
         # 15 % test
@@ -385,9 +323,6 @@ def exportar_dataset_yolo(
                 cantidad * 0.15
             )
         )
-
-        # Nos aseguramos de dejar
-        # al menos un grupo para train.
 
         while (
             cantidad_val
@@ -449,10 +384,6 @@ def exportar_dataset_yolo(
                 grupo
             ] = ConjuntoDataset.TEST
 
-    # ------------------------------------------------------
-    # 9. Preparar directorios
-    # ------------------------------------------------------
-
     directorio_origen = Path(
         os.getenv(
             "DATASET_STORAGE_DIR",
@@ -469,9 +400,6 @@ def exportar_dataset_yolo(
         )
         / str(dataset_id)
     )
-
-    # Si ya habíamos exportado antes,
-    # eliminamos esa exportación.
 
     if directorio_exportacion.exists():
 
@@ -509,10 +437,6 @@ def exportar_dataset_yolo(
         "test": 0
     }
 
-    # ------------------------------------------------------
-    # 10. Exportar imágenes y anotaciones
-    # ------------------------------------------------------
-
     for imagen in imagenes:
 
         anotaciones_imagen = (
@@ -543,9 +467,6 @@ def exportar_dataset_yolo(
         ):
             continue
 
-        # El grupo tiene que haber sido asignado
-        # anteriormente a train, val o test.
-
         if (
             grupo_fisico
             not in asignacion_grupos
@@ -564,10 +485,6 @@ def exportar_dataset_yolo(
             conjunto.value.lower()
         )
 
-        # --------------------------------------------------
-        # Imagen
-        # --------------------------------------------------
-
         ruta_origen = (
             directorio_origen
             / imagen.ruta_archivo
@@ -580,9 +497,6 @@ def exportar_dataset_yolo(
                     f"{ruta_origen}."
                 )
             )
-
-        # Utilizamos UUID para evitar conflictos
-        # de nombres.
 
         nombre_exportado = str(
             imagen.id
@@ -602,9 +516,6 @@ def exportar_dataset_yolo(
             / f"{nombre_exportado}.txt"
         )
 
-        # Convertimos todo a JPEG para tener
-        # una estructura uniforme.
-
         with Image.open(
             ruta_origen
         ) as imagen_pil:
@@ -616,10 +527,6 @@ def exportar_dataset_yolo(
                 format="JPEG",
                 quality=95
             )
-
-        # --------------------------------------------------
-        # Labels YOLO
-        # --------------------------------------------------
 
         lineas = []
 
@@ -635,22 +542,6 @@ def exportar_dataset_yolo(
 
             ancho = imagen.ancho
             alto = imagen.alto
-
-            # Bounding box original:
-            #
-            # x1, y1 --------
-            # |              |
-            # |              |
-            # -------- x2, y2
-            #
-            # YOLO necesita:
-            #
-            # centro_x
-            # centro_y
-            # ancho
-            # alto
-            #
-            # normalizados entre 0 y 1.
 
             centro_x = (
                 (
@@ -702,9 +593,6 @@ def exportar_dataset_yolo(
                 )
             )
 
-        # Una imagen puede tener múltiples
-        # anotaciones.
-
         ruta_label_destino.write_text(
             "\n".join(
                 lineas
@@ -715,10 +603,6 @@ def exportar_dataset_yolo(
         conteos[
             nombre_conjunto
         ] += 1
-
-    # ------------------------------------------------------
-    # 11. Crear dataset.yaml
-    # ------------------------------------------------------
 
     configuracion_yolo = {
         "path": str(
@@ -753,10 +637,6 @@ def exportar_dataset_yolo(
             sort_keys=False
         )
 
-    # ------------------------------------------------------
-    # 12. Guardar conjunto y grupo físico en BD
-    # ------------------------------------------------------
-
     try:
 
         sesion.commit()
@@ -765,10 +645,6 @@ def exportar_dataset_yolo(
 
         sesion.rollback()
         raise
-
-    # ------------------------------------------------------
-    # 13. Resultado
-    # ------------------------------------------------------
 
     return {
         "ruta_dataset": str(
