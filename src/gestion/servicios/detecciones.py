@@ -88,28 +88,33 @@ def crear_deteccion(
         anonimizada=False
     )
 
-    deteccion = DeteccionBD(
-        clase_senal_id=clase_senal_id,
-        evidencia_id=evidencia.id,
-        confianza=confianza,
-
-        bbox_x1=bbox_x1,
-        bbox_y1=bbox_y1,
-        bbox_x2=bbox_x2,
-        bbox_y2=bbox_y2,
-
-        latitud_captura=latitud_captura,
-        longitud_captura=longitud_captura,
-        distancia_estimada=distancia_estimada,
-
-        version_modelo_id=(
-            version_modelo_id
-        )
-    )
-
     try:
         sesion.add(
             evidencia
+        )
+
+        # Garantiza que la evidencia exista
+        # en PostgreSQL antes de insertar
+        # la detección que la referencia.
+        sesion.flush()
+
+        deteccion = DeteccionBD(
+            clase_senal_id=clase_senal_id,
+            evidencia_id=evidencia.id,
+            confianza=confianza,
+    
+            bbox_x1=bbox_x1,
+            bbox_y1=bbox_y1,
+            bbox_x2=bbox_x2,
+            bbox_y2=bbox_y2,
+    
+            latitud_captura=latitud_captura,
+            longitud_captura=longitud_captura,
+            distancia_estimada=distancia_estimada,
+    
+            version_modelo_id=(
+                version_modelo_id
+            )
         )
 
         sesion.add(

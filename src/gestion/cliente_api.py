@@ -31,11 +31,14 @@ class ClienteGestion:
             )
         }
 
-    def _procesar_respuesta(self, respuesta):
+    def _procesar_respuesta(self, respuesta, notificar_sesion_expirada=True):
         if respuesta.status_code == 401:
             self.access_token = None
 
-            if self.on_sesion_expirada:
+            if (
+                notificar_sesion_expirada
+                and self.on_sesion_expirada
+            ):
                 self.on_sesion_expirada()
 
             raise SesionExpiradaError(
@@ -517,13 +520,22 @@ class ClienteGestion:
             )
         }
 
-        respuesta = self._request(
-            "POST",
-            "/detecciones",
+        respuesta = requests.post(
+            (
+                f"{self.api_url}"
+                "/detecciones"
+            ),
+            headers=self._headers(),
             data=datos,
             files=archivos,
             timeout=30
         )
+
+        self._procesar_respuesta(
+            respuesta,
+            notificar_sesion_expirada
+        )
+
 
         return respuesta.json()
 

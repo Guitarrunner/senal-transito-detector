@@ -2,10 +2,14 @@ import uuid
 import tkinter as tk
 import time
 import cv2
+import queue
 
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 from datetime import datetime
+
+
+from concurrent.futures import ThreadPoolExecutor
 
 from src.dataset.exportador_dataset import ExportadorDataset
 from src.processing.procesador_imagen import ProcesadorImagen
@@ -14,7 +18,7 @@ from src.visualization.visualizador_resultados import VisualizadorResultados
 from src.storage.gestor_almacenamiento import GestorAlmacenamiento
 from src.processing.procesador_video import ProcesadorVideo
 from src.domain.usuario import Usuario
-from src.gestion.cliente_api import ClienteGestion
+from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.processing.procesador_camara import ProcesadorCamara
 from src.detection.rastreador_temporal import RastreadorTemporal
 class InterfazVisualizacion:
@@ -23,6 +27,22 @@ class InterfazVisualizacion:
 
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
+        self.sesion_expirada = False
+        self.verificacion_sesion_programada = None
+
+        clases = (
+            self.cliente_api
+            .listar_clases()
+        )
+
+        self.clases_por_nombre = {
+            clase["nombre"]
+            .strip()
+            .lower(): clase["id"]
+
+            for clase in clases
+        }
+
 
         self.rastreador_temporal = (
             RastreadorTemporal(
@@ -33,6 +53,25 @@ class InterfazVisualizacion:
         )
 
         self.detecciones_guardadas_sesion = 0
+
+        self.executor_guardado = (
+            ThreadPoolExecutor(
+                max_workers=1
+            )
+        )
+
+        self.cola_resultados_guardado = (
+            queue.Queue()
+        )
+
+        self.guardados_en_proceso = 0
+
+        self.verificacion_guardados_programada = (
+            self.ventana.after(
+                100,
+                self._procesar_resultados_guardado
+            )
+        )
 
         self.ventana = tk.Toplevel(parent)
         self.ventana.protocol(
@@ -95,6 +134,20 @@ class InterfazVisualizacion:
         self.inicializar_exportacion_limpia()
 
         self._crear_componentes()
+
+        self.ventana.bind(
+            "<ButtonPress>",
+            self._registrar_actividad,
+            add="+"
+        )
+
+        self.ventana.bind(
+            "<KeyPress>",
+            self._registrar_actividad,
+            add="+"
+        )
+
+        self._programar_verificacion_sesion()
 
     def _crear_componentes(self):
 
@@ -1102,23 +1155,9 @@ class InterfazVisualizacion:
             )
 
             for candidato in confirmadas:
-
-                try:
-                    self._guardar_deteccion_camara(
-                        candidato
-                    )
-
-                except Exception as error:
-
-                    # Permitimos volver a intentar
-                    # si la persistencia falló.
-                    candidato.confirmado = False
-
-                    print(
-                        "No se pudo guardar "
-                        "la detección:",
-                        error
-                    )
+                self._encolar_deteccion_camara(
+                    candidato
+                )
 
             frame_resultado = (
                 self.visualizador
@@ -1267,7 +1306,21 @@ class InterfazVisualizacion:
 
     def _cerrar_ventana(self):
 
-        self.detener_camara()
+        if self.camara_activa:
+            self.detener_camara()
+
+        if (
+            self.verificacion_sesion_programada
+            is not None
+        ):
+            try:
+                self.ventana.after_cancel(
+                    self.verificacion_sesion_programada
+                )
+            except tk.TclError:
+                pass
+
+            self.verificacion_sesion_programada = None
 
         self.ventana.destroy()
 
@@ -1357,11 +1410,106 @@ class InterfazVisualizacion:
             )
         )
 
-        self.detecciones_guardadas_sesion += 1
+    def _registrar_actividad(
+        self,
+        event=None
+    ):
+        self.cliente_api.registrar_actividad()
 
-        print(
-            "Detección guardada:",
-            respuesta["id"],
-            candidato.tipo_senal,
-            f"{candidato.mejor_confianza:.2f}"
+
+    def _programar_verificacion_sesion(
+        self
+    ):
+        self.verificacion_sesion_programada = (
+            self.ventana.after(
+                60000,
+                self._verificar_sesion
+            )
+        )
+
+
+    def _verificar_sesion(self):
+
+        if not self.ventana.winfo_exists():
+            return
+
+        try:
+            renovada = (
+                self.cliente_api
+                .renovar_sesion_si_necesario()
+            )
+
+            if renovada:
+                print(
+                    "Sesión CAMPO renovada."
+                )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+            print(
+                "Error verificando sesión:",
+                error
+            )
+
+        self._programar_verificacion_sesion()
+
+
+    def cerrar_sesion_expirada(self):
+
+        if self.sesion_expirada:
+            return
+
+        self.sesion_expirada = True
+
+        if self.camara_activa:
+            self.detener_camara()
+
+        if (
+            self.verificacion_sesion_programada
+            is not None
+        ):
+            try:
+                self.ventana.after_cancel(
+                    self.verificacion_sesion_programada
+                )
+            except tk.TclError:
+                pass
+
+            self.verificacion_sesion_programada = None
+
+        messagebox.showwarning(
+            "Sesión expirada",
+            (
+                "Tu sesión ha expirado. "
+                "Debes iniciar sesión nuevamente."
+            )
+        )
+
+        self.ventana.destroy()
+
+    def _encolar_deteccion_camara(
+        self,
+        candidato
+    ):
+
+        self.guardados_en_proceso += 1
+
+        futuro = (
+            self.executor_guardado.submit(
+                self._guardar_deteccion_camara,
+                candidato
+            )
+        )
+
+        futuro.add_done_callback(
+            lambda futuro,
+            candidato=candidato:
+            self.cola_resultados_guardado.put(
+                (
+                    candidato,
+                    futuro
+                )
+            )
         )

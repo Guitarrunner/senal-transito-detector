@@ -1,7 +1,7 @@
 import cv2
 from pathlib import Path
 from datetime import datetime
-from typing import Tuple
+from typing import Optional, Tuple
 
 from src.domain.imagen import Imagen
 
@@ -24,7 +24,9 @@ class ProcesadorVideo:
         video_id: str,
         intervalo_segundos: int = 1,
         max_frames: int = 30,
-        size: Tuple[int, int] = (640, 640)
+        size: Optional[
+            Tuple[int, int]
+        ] = None
     ):
         ruta_video = Path(ruta)
 
@@ -61,7 +63,18 @@ class ProcesadorVideo:
                 break
 
             if frame_actual % intervalo_frames == 0:
-                frame_redimensionado = cv2.resize(frame, size)
+                if size is not None:
+
+                    frame_procesado = (
+                        cv2.resize(
+                            frame,
+                            size
+                        )
+                    )
+
+                else:
+
+                    frame_procesado = frame
 
                 imagen_id = f"{video_id}_frame_{frame_actual}"
                 nombre_salida = f"{imagen_id}_procesado.png"
@@ -69,7 +82,7 @@ class ProcesadorVideo:
 
                 guardado = cv2.imwrite(
                     str(ruta_salida),
-                    frame_redimensionado
+                    frame_procesado
                 )
 
                 if not guardado:
@@ -77,7 +90,7 @@ class ProcesadorVideo:
                         f"No se pudo guardar el frame procesado: {ruta_salida}"
                     )
 
-                alto, ancho = frame_redimensionado.shape[:2]
+                alto, ancho = frame_procesado.shape[:2]
                 segundo = frame_actual / fps
 
                 metadata = {

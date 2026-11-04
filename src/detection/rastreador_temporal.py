@@ -168,7 +168,7 @@ class RastreadorTemporal:
     ):
 
         mejor = None
-        mejor_iou = 0.0
+        mejor_puntaje = None
 
         for candidato in self.candidatos:
 
@@ -186,12 +186,38 @@ class RastreadorTemporal:
                 bbox
             )
 
+            distancia = (
+                self._calcular_distancia_centros(
+                    candidato.bbox_actual,
+                    bbox
+                )
+            )
+
+            tamano_referencia = max(
+                candidato.bbox_actual["ancho"],
+                candidato.bbox_actual["alto"],
+                bbox["ancho"],
+                bbox["alto"]
+            )
+
+            distancia_maxima = (
+                tamano_referencia * 2.0
+            )
+
             if (
-                iou >= self.iou_minimo
-                and iou > mejor_iou
+                iou < self.iou_minimo
+                and distancia > distancia_maxima
+            ):
+                continue
+
+            puntaje = distancia
+
+            if (
+                mejor_puntaje is None
+                or puntaje < mejor_puntaje
             ):
                 mejor = candidato
-                mejor_iou = iou
+                mejor_puntaje = puntaje
 
         return mejor
 
@@ -269,3 +295,40 @@ class RastreadorTemporal:
             area_inter
             / union
         )
+
+    def _calcular_distancia_centros(
+        self,
+        bbox_a,
+        bbox_b
+    ):
+        centro_ax = (
+            bbox_a["x"]
+            + bbox_a["ancho"] / 2
+        )
+
+        centro_ay = (
+            bbox_a["y"]
+            + bbox_a["alto"] / 2
+        )
+
+        centro_bx = (
+            bbox_b["x"]
+            + bbox_b["ancho"] / 2
+        )
+
+        centro_by = (
+            bbox_b["y"]
+            + bbox_b["alto"] / 2
+        )
+
+        distancia = (
+            (
+                centro_ax - centro_bx
+            ) ** 2
+            +
+            (
+                centro_ay - centro_by
+            ) ** 2
+        ) ** 0.5
+
+        return distancia

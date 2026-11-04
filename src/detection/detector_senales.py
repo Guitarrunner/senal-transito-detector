@@ -22,7 +22,7 @@ class DetectorSenales:
             agnostic_nms=True
         )
 
-        return self.procesar_resultados(resultados, imagen_id)
+        return self._procesar_resultados(resultados, imagen_id)
 
     def detectar_frame(
         self,

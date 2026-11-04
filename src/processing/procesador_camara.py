@@ -24,16 +24,6 @@ class ProcesadorCamara:
                 "No se pudo abrir la cámara."
             )
 
-        self.captura.set(
-            cv2.CAP_PROP_FRAME_WIDTH,
-            1280
-        )
-
-        self.captura.set(
-            cv2.CAP_PROP_FRAME_HEIGHT,
-            720
-        )
-
     def leer_frame(self):
 
         if self.captura is None:

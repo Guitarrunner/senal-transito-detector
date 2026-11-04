@@ -90,11 +90,39 @@ class Login:
 
                     self.ventana.withdraw()
 
-                    app = InterfazVisualizacion(self.ventana, usuario_autenticado, cliente_api)
-                    
+                    app = InterfazVisualizacion(
+                        self.ventana,
+                        usuario_autenticado,
+                        cliente_api
+                    )
+
+                    cliente_api.on_sesion_expirada = (
+                        app.cerrar_sesion_expirada
+                    )
+
                     app.ejecutar()
-                    self.ventana.destroy()
-                    
+
+                    if app.sesion_expirada:
+
+                        self.control_acceso.access_token = None
+
+                        self.usuario_entry.delete(
+                            0,
+                            tk.END
+                        )
+
+                        self.password_entry.delete(
+                            0,
+                            tk.END
+                        )
+
+                        self.ventana.deiconify()
+                        self.ventana.lift()
+                        self.usuario_entry.focus_set()
+
+                    else:
+                        self.ventana.destroy()
+
                 case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
 
                     self.ventana.withdraw()
