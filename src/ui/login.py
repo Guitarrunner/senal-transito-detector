@@ -91,10 +91,10 @@ class Login:
                     self.ventana.withdraw()
 
                     app = InterfazVisualizacion(self.ventana, usuario_autenticado, cliente_api)
-                    app.label_estado.config(
-                        text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
-                    )
+                    
                     app.ejecutar()
+                    self.ventana.destroy()
+                    
                 case RolUsuario.OPERADOR | RolUsuario.ADMINISTRADOR:
 
                     self.ventana.withdraw()

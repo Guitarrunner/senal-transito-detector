@@ -1,5 +1,7 @@
 import uuid
 import tkinter as tk
+import time
+import cv2
 
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -13,7 +15,8 @@ from src.storage.gestor_almacenamiento import GestorAlmacenamiento
 from src.processing.procesador_video import ProcesadorVideo
 from src.domain.usuario import Usuario
 from src.gestion.cliente_api import ClienteGestion
-
+from src.processing.procesador_camara import ProcesadorCamara
+from src.detection.rastreador_temporal import RastreadorTemporal
 class InterfazVisualizacion:
 
     def __init__(self, parent, usuario_autenticado: Usuario, cliente_api: ClienteGestion):
@@ -21,7 +24,21 @@ class InterfazVisualizacion:
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
 
+        self.rastreador_temporal = (
+            RastreadorTemporal(
+                apariciones_minimas=3,
+                iou_minimo=0.25,
+                tiempo_expiracion=1.0
+            )
+        )
+
+        self.detecciones_guardadas_sesion = 0
+
         self.ventana = tk.Toplevel(parent)
+        self.ventana.protocol(
+            "WM_DELETE_WINDOW",
+            self._cerrar_ventana
+        )
 
         self.ventana.title(
             "Sistema de Reconocimiento de Señales"
@@ -43,6 +60,14 @@ class InterfazVisualizacion:
         self.indice_frame_video_actual = 0
         self.modo_video = False
 
+        self.procesador_camara = ProcesadorCamara()
+
+        self.tiempo_frame_anterior = None
+        self.fps_actual = 0.0
+
+        self.camara_activa = False
+        self.after_camara_id = None
+
         modelo_activo = (
             self.cliente_api
             .obtener_modelo_activo()
@@ -60,7 +85,7 @@ class InterfazVisualizacion:
             modelo_path=(
                 modelo_activo["ruta_modelo"]
             ),
-            confianza_minima=0.5
+            confianza_minima=0.35
         )
 
         self.visualizador = VisualizadorResultados()
@@ -148,6 +173,31 @@ class InterfazVisualizacion:
             pady=5
         )
 
+        self.boton_iniciar_camara = tk.Button(
+            sidebar,
+            text="Iniciar cámara",
+            command=self.iniciar_camara,
+            height=2,
+            width=25
+        )
+
+        self.boton_iniciar_camara.pack(
+            pady=5
+        )
+
+        self.boton_detener_camara = tk.Button(
+            sidebar,
+            text="Detener cámara",
+            command=self.detener_camara,
+            height=2,
+            width=25,
+            state=tk.DISABLED
+        )
+
+        self.boton_detener_camara.pack(
+            pady=5
+        )
+
         boton_limpiar = tk.Button(
             sidebar,
             text="Limpiar interfaz",
@@ -204,6 +254,7 @@ class InterfazVisualizacion:
         self.label_estado.config(
             text=(
                 "Sistema listo.\n"
+                f"Sesión iniciada como: CAMPO\n"
                 f"Modelo activo: "
                 f"{self.modelo_activo_version}"
             )
@@ -307,6 +358,9 @@ class InterfazVisualizacion:
         self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     def procesar_imagen(self):
+
+        if self.camara_activa:
+            self.detener_camara()
 
         self.modo_video = False
         self.frames_video_actual = []
@@ -471,7 +525,8 @@ class InterfazVisualizacion:
         )
 
         imagen.thumbnail(
-            (800, 600)
+            (900, 650),
+            Image.Resampling.LANCZOS
         )
 
         self.imagen_tk = ImageTk.PhotoImage(
@@ -603,6 +658,9 @@ class InterfazVisualizacion:
         self.almacenamiento.limpiar_cola_exportacion()
 
     def procesar_video(self):
+
+        if self.camara_activa:
+            self.detener_camara()
 
         ruta = filedialog.askopenfilename(
             parent=self.ventana,
@@ -934,3 +992,376 @@ class InterfazVisualizacion:
     def ejecutar(self):
 
         self.ventana.wait_window()
+
+    def iniciar_camara(self):
+
+        if self.camara_activa:
+            return
+
+        self.rastreador_temporal.reiniciar()
+
+        self.detecciones_guardadas_sesion = 0
+
+        self.frame_navegacion_video.pack_forget()
+
+        try:
+            self.procesador_camara.abrir()
+
+        except RuntimeError as error:
+
+            messagebox.showerror(
+                "Error de cámara",
+                str(error)
+            )
+
+            return
+
+        self.camara_activa = True
+
+        self.tiempo_frame_anterior = (
+            time.perf_counter()
+        )
+
+        resolucion = (
+            self.procesador_camara
+            .obtener_resolucion()
+        )
+
+        if resolucion is not None:
+            ancho, alto = resolucion
+
+            self.resolucion_camara = (
+                f"{ancho}x{alto}"
+            )
+        else:
+            self.resolucion_camara = (
+                "Desconocida"
+            )
+
+        self.boton_iniciar_camara.config(
+            state=tk.DISABLED
+        )
+
+        self.boton_detener_camara.config(
+            state=tk.NORMAL
+        )
+
+        self.label_estado.config(
+            text=(
+                "Cámara activa\n"
+                f"Modelo: "
+                f"{self.modelo_activo_version}\n"
+                f"Resolución: "
+                f"{self.resolucion_camara}"
+            )
+        )
+
+        self._actualizar_camara()
+
+    def _actualizar_camara(self):
+
+        if not self.camara_activa:
+            return
+
+        frame = (
+            self.procesador_camara
+            .leer_frame()
+        )
+
+        if frame is None:
+
+            self.detener_camara()
+
+            messagebox.showerror(
+                "Error de cámara",
+                "No se pudo obtener un frame."
+            )
+
+            return
+
+        imagen_id = str(
+            uuid.uuid4()
+        )
+
+        try:
+
+            detecciones, etiquetas = (
+                self.detector.detectar_frame(
+                    frame,
+                    imagen_id
+                )
+            )
+
+            confirmadas = (
+                self.rastreador_temporal
+                .actualizar(
+                    frame,
+                    detecciones,
+                    etiquetas
+                )
+            )
+
+            for candidato in confirmadas:
+
+                try:
+                    self._guardar_deteccion_camara(
+                        candidato
+                    )
+
+                except Exception as error:
+
+                    # Permitimos volver a intentar
+                    # si la persistencia falló.
+                    candidato.confirmado = False
+
+                    print(
+                        "No se pudo guardar "
+                        "la detección:",
+                        error
+                    )
+
+            frame_resultado = (
+                self.visualizador
+                .dibujar_detecciones_frame(
+                    frame,
+                    detecciones,
+                    etiquetas
+                )
+            )
+
+            self._mostrar_frame_camara(
+                frame_resultado
+            )
+
+            self.mostrar_resultados(
+                detecciones
+            )
+
+            tiempo_actual = (
+                time.perf_counter()
+            )
+
+            if (
+                self.tiempo_frame_anterior
+                is not None
+            ):
+
+                duracion = (
+                    tiempo_actual
+                    - self.tiempo_frame_anterior
+                )
+
+                if duracion > 0:
+                    fps_instantaneo = (
+                        1.0 / duracion
+                    )
+
+                    self.fps_actual = (
+                        self.fps_actual * 0.8
+                        + fps_instantaneo * 0.2
+                    )
+
+            self.tiempo_frame_anterior = (
+                tiempo_actual
+            )
+
+            self.label_estado.config(
+                text=(
+                    "Cámara activa\n"
+                    f"Modelo: "
+                    f"{self.modelo_activo_version}\n"
+                    f"Resolución: "
+                    f"{self.resolucion_camara}\n"
+                    f"FPS: "
+                    f"{self.fps_actual:.1f}\n"
+                    f"En frame: "
+                    f"{len(detecciones)}\n"
+                    f"Guardadas: "
+                    f"{self.detecciones_guardadas_sesion}"
+                )
+            )
+
+        except Exception as error:
+
+            self.detener_camara()
+
+            messagebox.showerror(
+                "Error de inferencia",
+                str(error)
+            )
+
+            return
+
+        self.after_camara_id = (
+            self.ventana.after(
+                10,
+                self._actualizar_camara
+            )
+        )
+
+    def _mostrar_frame_camara(
+        self,
+        frame
+    ):
+
+        frame_rgb = (
+            self.procesador
+            .convertir_rgb(
+                frame
+            )
+        )
+
+        imagen = Image.fromarray(
+            frame_rgb
+        )
+
+        imagen.thumbnail(
+            (800, 600),
+            Image.Resampling.LANCZOS
+        )
+
+        self.imagen_tk = (
+            ImageTk.PhotoImage(
+                imagen,
+                master=self.ventana
+            )
+        )
+
+        self.canvas.configure(
+            image=self.imagen_tk
+        )
+
+    def detener_camara(self):
+
+        self.camara_activa = False
+
+        if self.after_camara_id is not None:
+
+            try:
+                self.ventana.after_cancel(
+                    self.after_camara_id
+                )
+
+            except tk.TclError:
+                pass
+
+            self.after_camara_id = None
+
+        self.procesador_camara.cerrar()
+
+        self.boton_iniciar_camara.config(
+            state=tk.NORMAL
+        )
+
+        self.boton_detener_camara.config(
+            state=tk.DISABLED
+        )
+
+        self.label_estado.config(
+            text=(
+                "Cámara detenida.\n"
+                f"Modelo activo: "
+                f"{self.modelo_activo_version}"
+            )
+        )
+
+    def _cerrar_ventana(self):
+
+        self.detener_camara()
+
+        self.ventana.destroy()
+
+    def _guardar_deteccion_camara(
+        self,
+        candidato
+    ):
+
+        nombre_clase = (
+            candidato.tipo_senal
+            .strip()
+            .lower()
+        )
+
+        clase_senal_id = (
+            self.clases_por_nombre.get(
+                nombre_clase
+            )
+        )
+
+        if clase_senal_id is None:
+            raise ValueError(
+                (
+                    "No existe la clase "
+                    f"'{candidato.tipo_senal}' "
+                    "en la base de datos."
+                )
+            )
+
+        exito, buffer = cv2.imencode(
+            ".jpg",
+            candidato.mejor_frame,
+            [
+                cv2.IMWRITE_JPEG_QUALITY,
+                95
+            ]
+        )
+
+        if not exito:
+            raise RuntimeError(
+                "No se pudo generar la evidencia."
+            )
+
+        evidencia_bytes = (
+            buffer.tobytes()
+        )
+
+        bbox = candidato.mejor_bbox
+
+        respuesta = (
+            self.cliente_api
+            .registrar_deteccion(
+                clase_senal_id=(
+                    clase_senal_id
+                ),
+
+                confianza=(
+                    candidato
+                    .mejor_confianza
+                ),
+
+                bbox_x1=(
+                    bbox["x"]
+                ),
+
+                bbox_y1=(
+                    bbox["y"]
+                ),
+
+                bbox_x2=(
+                    bbox["x"]
+                    + bbox["ancho"]
+                ),
+
+                bbox_y2=(
+                    bbox["y"]
+                    + bbox["alto"]
+                ),
+
+                version_modelo_id=(
+                    self.modelo_activo_id
+                ),
+
+                evidencia_bytes=(
+                    evidencia_bytes
+                )
+            )
+        )
+
+        self.detecciones_guardadas_sesion += 1
+
+        print(
+            "Detección guardada:",
+            respuesta["id"],
+            candidato.tipo_senal,
+            f"{candidato.mejor_confianza:.2f}"
+        )

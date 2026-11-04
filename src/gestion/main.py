@@ -9,6 +9,8 @@ from src.gestion.routers.clases import router as clases_router
 from src.gestion.routers.dataset import router as datasets_router
 from src.gestion.routers.imagenes import router as imagenes_router
 from src.gestion.routers.modelos import router as modelos_router
+from src.gestion.routers.detecciones import router as detecciones_router
+
 from src.gestion.servicios.entrenamiento_modelo import recuperar_entrenamientos_interrumpidos
 
 @asynccontextmanager
@@ -30,6 +32,7 @@ app.include_router(clases_router)
 app.include_router(datasets_router)
 app.include_router(imagenes_router)
 app.include_router(modelos_router)
+app.include_router(detecciones_router)
 
 @app.get("/salud")
 def salud():

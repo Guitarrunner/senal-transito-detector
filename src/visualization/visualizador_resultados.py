@@ -53,3 +53,71 @@ class VisualizadorResultados:
         cv2.imwrite(str(ruta_salida), imagen)
 
         return str(ruta_salida)
+
+    def dibujar_detecciones_frame(
+        self,
+        frame,
+        detecciones,
+        etiquetas
+    ):
+
+        imagen = frame.copy()
+
+        etiquetas_por_deteccion = {
+            etiqueta.deteccion_id: etiqueta
+            for etiqueta in etiquetas
+        }
+
+        for deteccion in detecciones:
+
+            etiqueta = (
+                etiquetas_por_deteccion.get(
+                    deteccion.id
+                )
+            )
+
+            if etiqueta is None:
+                continue
+
+            bbox = (
+                etiqueta.bounding_box
+            )
+
+            x = bbox["x"]
+            y = bbox["y"]
+            ancho = bbox["ancho"]
+            alto = bbox["alto"]
+
+            cv2.rectangle(
+                imagen,
+                (x, y),
+                (
+                    x + ancho,
+                    y + alto
+                ),
+                (0, 255, 0),
+                2
+            )
+
+            texto = (
+                f"{deteccion.tipo_senal} "
+                f"{deteccion.confianza:.2f}"
+            )
+
+            cv2.putText(
+                imagen,
+                texto,
+                (
+                    x,
+                    max(
+                        y - 10,
+                        20
+                    )
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2
+            )
+
+        return imagen

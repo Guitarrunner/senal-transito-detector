@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from src.domain.rol_usuario import RolUsuario
 from src.domain.conjunto_dataset import ConjuntoDataset
 from src.domain.estado_entrenamiento import EstadoEntrenamiento
+from src.domain.estado_revision import EstadoRevision
 
 
 
@@ -191,3 +192,27 @@ class VersionModeloRespuesta(BaseModel):
 class TokenRespuesta(BaseModel):
     access_token: str
     token_type: str
+
+class DeteccionRespuesta(BaseModel):
+    id: uuid.UUID
+
+    clase_senal_id: int
+    clase_nombre: str
+
+    evidencia_id: uuid.UUID | None
+
+    confianza: float
+    fecha_hora: datetime
+
+    bbox_x1: int
+    bbox_y1: int
+    bbox_x2: int
+    bbox_y2: int
+
+    latitud_captura: float | None
+    longitud_captura: float | None
+    distancia_estimada: float | None
+
+    estado_revision: EstadoRevision
+
+    version_modelo_id: uuid.UUID

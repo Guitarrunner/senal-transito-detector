@@ -145,12 +145,22 @@ class ProcesadorImagen:
         self,
         ruta: str,
         imagen_id: str,
-        size: Optional[Tuple[int, int]] = (640, 640)
+        size: Optional[Tuple[int, int]] = None
     ) -> Dict:
         imagen_original = self.cargar_imagen(ruta)
         metadata_original = self.obtener_metadata(ruta, imagen_original)
 
-        imagen_procesada = self.redimensionar(imagen_original, size)
+        if size is not None:
+            imagen_procesada = (
+                self.redimensionar(
+                    imagen_original,
+                    size
+                )
+            )
+        else:
+            imagen_procesada = (
+                imagen_original
+            )
 
         nombre_salida = f"{imagen_id}_procesada.png"
         ruta_procesada = self.guardar_imagen_procesada(

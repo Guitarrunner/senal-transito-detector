@@ -21,46 +21,27 @@ class DetectorSenales:
             iou=0.45,
             agnostic_nms=True
         )
-        detecciones = []
-        etiquetas = []
 
-        for resultado in resultados:
-            for box in resultado.boxes:
-                confianza = float(box.conf[0])
+        return self.procesar_resultados(resultados, imagen_id)
 
-                if confianza < self.confianza_minima:
-                    continue
+    def detectar_frame(
+        self,
+        frame,
+        imagen_id: str
+    ):
+        
+        resultados = self.modelo(
+            frame,
+            conf=self.confianza_minima,
+            iou=0.45,
+            agnostic_nms=True,
+            verbose=False
+        )
 
-                clase_id = int(box.cls[0])
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-
-                deteccion_id = str(uuid.uuid4())
-                etiqueta_id = str(uuid.uuid4())
-
-                deteccion = Deteccion(
-                    id=deteccion_id,
-                    imagen_id=imagen_id,
-                    tipo_senal=self.clases.get(clase_id, str(clase_id)),
-                    distancia=0.0,
-                    ubicacion_gps={},
-                    confianza=confianza
-                )
-
-                etiqueta = Etiqueta(
-                    id=etiqueta_id,
-                    deteccion_id=deteccion_id,
-                    bounding_box={
-                        "x": int(x1),
-                        "y": int(y1),
-                        "ancho": int(x2 - x1),
-                        "alto": int(y2 - y1)
-                    }
-                )
-
-                detecciones.append(deteccion)
-                etiquetas.append(etiqueta)
-
-        return detecciones, etiquetas
+        return self._procesar_resultados(
+            resultados,
+            imagen_id
+        )
     
     def _resolver_modelo(self, modelo_path: str):
         ruta_modelo = Path(modelo_path)
@@ -91,3 +72,81 @@ class DetectorSenales:
             for indice, nombre
             in enumerate(nombres)
         }
+
+    def _procesar_resultados(
+        self,
+        resultados,
+        imagen_id: str
+    ):
+        detecciones = []
+        etiquetas = []
+
+        for resultado in resultados:
+
+            for box in resultado.boxes:
+
+                confianza = float(
+                    box.conf[0]
+                )
+
+                if (
+                    confianza
+                    < self.confianza_minima
+                ):
+                    continue
+
+                clase_id = int(
+                    box.cls[0]
+                )
+
+                x1, y1, x2, y2 = (
+                    box.xyxy[0].tolist()
+                )
+
+                deteccion_id = str(
+                    uuid.uuid4()
+                )
+
+                etiqueta_id = str(
+                    uuid.uuid4()
+                )
+
+                deteccion = Deteccion(
+                    id=deteccion_id,
+                    imagen_id=imagen_id,
+                    tipo_senal=self.clases.get(
+                        clase_id,
+                        str(clase_id)
+                    ),
+                    distancia=0.0,
+                    ubicacion_gps={},
+                    confianza=confianza
+                )
+
+                etiqueta = Etiqueta(
+                    id=etiqueta_id,
+                    deteccion_id=deteccion_id,
+                    bounding_box={
+                        "x": int(x1),
+                        "y": int(y1),
+                        "ancho": int(
+                            x2 - x1
+                        ),
+                        "alto": int(
+                            y2 - y1
+                        )
+                    }
+                )
+
+                detecciones.append(
+                    deteccion
+                )
+
+                etiquetas.append(
+                    etiqueta
+                )
+
+        return (
+            detecciones,
+            etiquetas
+        )

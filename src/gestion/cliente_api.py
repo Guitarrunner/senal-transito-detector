@@ -457,5 +457,75 @@ class ClienteGestion:
         )
 
         return respuesta.json()
+
+    def registrar_deteccion(
+        self,
+        clase_senal_id: int,
+        confianza: float,
+
+        bbox_x1: int,
+        bbox_y1: int,
+        bbox_x2: int,
+        bbox_y2: int,
+
+        version_modelo_id: str,
+
+        evidencia_bytes: bytes,
+
+        latitud_captura=None,
+        longitud_captura=None,
+        distancia_estimada=None
+    ):
+
+        datos = {
+            "clase_senal_id": (
+                clase_senal_id
+            ),
+
+            "confianza": confianza,
+
+            "bbox_x1": bbox_x1,
+            "bbox_y1": bbox_y1,
+            "bbox_x2": bbox_x2,
+            "bbox_y2": bbox_y2,
+
+            "version_modelo_id": (
+                version_modelo_id
+            )
+        }
+
+        if latitud_captura is not None:
+            datos["latitud_captura"] = (
+                latitud_captura
+            )
+
+        if longitud_captura is not None:
+            datos["longitud_captura"] = (
+                longitud_captura
+            )
+
+        if distancia_estimada is not None:
+            datos["distancia_estimada"] = (
+                distancia_estimada
+            )
+
+        archivos = {
+            "evidencia": (
+                "evidencia.jpg",
+                evidencia_bytes,
+                "image/jpeg"
+            )
+        }
+
+        respuesta = self._request(
+            "POST",
+            "/detecciones",
+            data=datos,
+            files=archivos,
+            timeout=30
+        )
+
+        return respuesta.json()
+
 class SesionExpiradaError(RuntimeError):
     pass

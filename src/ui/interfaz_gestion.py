@@ -18,6 +18,20 @@ class InterfazGestion:
 
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
+
+        clases = (
+            self.cliente_api
+            .listar_clases()
+        )
+
+        self.clases_por_nombre = {
+            clase["nombre"]
+            .strip()
+            .lower(): clase["id"]
+
+            for clase in clases
+        }
+
         self.sesion_expirada = False
         self.sesion_cerrada = False
 
