@@ -477,8 +477,10 @@ class ClienteGestion:
 
         latitud_captura=None,
         longitud_captura=None,
-        distancia_estimada=None
-    ):
+        distancia_estimada=None,
+
+        notificar_sesion_expirada: bool = True
+        ):
 
         datos = {
             "clase_senal_id": (

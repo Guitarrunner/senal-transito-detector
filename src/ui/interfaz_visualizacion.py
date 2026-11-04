@@ -66,12 +66,7 @@ class InterfazVisualizacion:
 
         self.guardados_en_proceso = 0
 
-        self.verificacion_guardados_programada = (
-            self.ventana.after(
-                100,
-                self._procesar_resultados_guardado
-            )
-        )
+        self.verificacion_guardados_programada = None
 
         self.ventana = tk.Toplevel(parent)
         self.ventana.protocol(
@@ -134,6 +129,13 @@ class InterfazVisualizacion:
         self.inicializar_exportacion_limpia()
 
         self._crear_componentes()
+
+        self.verificacion_guardados_programada = (
+            self.ventana.after(
+                100,
+                self._procesar_resultados_guardado
+            )
+        )
 
         self.ventana.bind(
             "<ButtonPress>",
@@ -1322,6 +1324,7 @@ class InterfazVisualizacion:
 
             self.verificacion_sesion_programada = None
 
+        self._cerrar_guardado_async()
         self.ventana.destroy()
 
     def _guardar_deteccion_camara(
@@ -1378,8 +1381,7 @@ class InterfazVisualizacion:
                 ),
 
                 confianza=(
-                    candidato
-                    .mejor_confianza
+                    candidato.mejor_confianza
                 ),
 
                 bbox_x1=(
@@ -1406,9 +1408,13 @@ class InterfazVisualizacion:
 
                 evidencia_bytes=(
                     evidencia_bytes
-                )
+                ),
+
+                notificar_sesion_expirada=False
             )
         )
+
+        return respuesta
 
     def _registrar_actividad(
         self,
@@ -1487,6 +1493,8 @@ class InterfazVisualizacion:
             )
         )
 
+        self._cerrar_guardado_async()
+
         self.ventana.destroy()
 
     def _encolar_deteccion_camara(
@@ -1512,4 +1520,99 @@ class InterfazVisualizacion:
                     futuro
                 )
             )
+        )
+
+    def _procesar_resultados_guardado(
+        self
+    ):
+
+        while True:
+
+            try:
+                candidato, futuro = (
+                    self.cola_resultados_guardado
+                    .get_nowait()
+                )
+
+            except queue.Empty:
+                break
+
+            self.guardados_en_proceso = max(
+                0,
+                self.guardados_en_proceso - 1
+            )
+
+            try:
+                respuesta = futuro.result()
+
+            except SesionExpiradaError:
+
+                candidato.confirmado = False
+
+                self.cerrar_sesion_expirada()
+
+                return
+
+            except Exception as error:
+
+                candidato.confirmado = False
+
+                print(
+                    "No se pudo guardar "
+                    "la detección:",
+                    error
+                )
+
+            else:
+
+                self.detecciones_guardadas_sesion += 1
+
+                print(
+                    "Detección guardada:",
+                    respuesta["id"],
+                    candidato.tipo_senal,
+                    (
+                        f"{candidato.mejor_confianza:.2f}"
+                    )
+                )
+
+        try:
+            ventana_existe = (
+                self.ventana.winfo_exists()
+            )
+
+        except tk.TclError:
+            ventana_existe = False
+
+        if ventana_existe:
+
+            self.verificacion_guardados_programada = (
+                self.ventana.after(
+                    100,
+                    self._procesar_resultados_guardado
+                )
+            )
+
+    def _cerrar_guardado_async(
+        self
+    ):
+
+        if (
+            self.verificacion_guardados_programada
+            is not None
+        ):
+
+            try:
+                self.ventana.after_cancel(
+                    self.verificacion_guardados_programada
+                )
+
+            except tk.TclError:
+                pass
+
+            self.verificacion_guardados_programada = None
+
+        self.executor_guardado.shutdown(
+            wait=False,
+            cancel_futures=True
         )
