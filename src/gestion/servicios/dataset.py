@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
 from src.gestion.modelos import (
@@ -186,104 +186,6 @@ def guardar_imagen_dataset(
 
     return imagen_bd
 
-def guardar_imagen_dataset(
-    sesion: Session,
-    dataset: DatasetBD,
-    nombre_original: str,
-    contenido: bytes,
-    grupo_fisico: str | None = None
-) -> ImagenDatasetBD:
-
-    if not contenido:
-        raise ValueError(
-            "El archivo de imagen está vacío."
-        )
-
-    try:
-        with Image.open(BytesIO(contenido)) as imagen:
-            imagen.verify()
-
-        with Image.open(BytesIO(contenido)) as imagen:
-            ancho, alto = imagen.size
-            formato = imagen.format
-
-    except (UnidentifiedImageError, OSError):
-        raise ValueError(
-            "El archivo proporcionado no es una imagen válida."
-        )
-
-    extensiones = {
-        "JPEG": ".jpg",
-        "PNG": ".png",
-        "BMP": ".bmp",
-        "HEIF": ".heic"
-    }
-
-    if formato not in extensiones:
-        raise ValueError(
-            "Formato no permitido. Utilice JPG, PNG, HEIC o BMP."
-        )
-
-    extension = extensiones[formato]
-
-    directorio_base = Path(
-        os.getenv(
-            "DATASET_STORAGE_DIR",
-            "datasets"
-        )
-    )
-
-    directorio_dataset = (
-        directorio_base / str(dataset.id)
-    )
-
-    directorio_dataset.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    nombre_fisico = (
-        f"{uuid.uuid4()}{extension}"
-    )
-
-    ruta_fisica = (
-        directorio_dataset / nombre_fisico
-    )
-
-    ruta_relativa = (
-        Path(str(dataset.id))
-        / nombre_fisico
-    )
-
-    ruta_fisica.write_bytes(
-        contenido
-    )
-
-    imagen_bd = ImagenDatasetBD(
-        dataset_id=dataset.id,
-        ruta_archivo=str(ruta_relativa),
-        nombre_archivo=nombre_original,
-        ancho=ancho,
-        alto=alto,
-        conjunto=None,
-        grupo_fisico=grupo_fisico,
-        evidencia_id=None
-    )
-
-    try:
-        sesion.add(imagen_bd)
-        sesion.commit()
-        sesion.refresh(imagen_bd)
-
-    except Exception:
-        sesion.rollback()
-
-        if ruta_fisica.exists():
-            ruta_fisica.unlink()
-
-        raise
-
-    return imagen_bd
 
 def listar_imagenes_dataset(
     sesion: Session,

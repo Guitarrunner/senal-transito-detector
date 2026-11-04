@@ -88,7 +88,9 @@ class Login:
             match usuario_autenticado.rol:
                 case RolUsuario.CAMPO:
 
-                    app = InterfazVisualizacion(usuario_autenticado)
+                    self.ventana.withdraw()
+
+                    app = InterfazVisualizacion(self.ventana, usuario_autenticado, cliente_api)
                     app.label_estado.config(
                         text=f"Sesión iniciada como: {usuario_autenticado.rol.value}"
                     )

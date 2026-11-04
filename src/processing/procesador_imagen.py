@@ -3,6 +3,20 @@ from pathlib import Path
 from datetime import datetime
 from typing import Tuple, Dict, Optional
 
+import numpy as np
+
+from PIL import (
+    Image,
+    ImageOps,
+    UnidentifiedImageError
+)
+
+from pillow_heif import (
+    register_heif_opener
+)
+
+register_heif_opener()
+
 from src.domain.imagen import Imagen
 
 
@@ -11,30 +25,67 @@ class ProcesadorImagen:
     Módulo encargado de cargar, validar y preprocesar imágenes.
     """
 
-    FORMATOS_SOPORTADOS = [".jpg", ".jpeg", ".png"]
+    FORMATOS_SOPORTADOS = [".jpg", ".jpeg", ".png", ".heic", ".heif"]
 
     def __init__(self, output_dir: str = "data/processed"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def cargar_imagen(self, ruta: str):
+    def cargar_imagen(
+        self,
+        ruta: str
+    ):
         ruta_imagen = Path(ruta)
 
         if not ruta_imagen.exists():
-            raise FileNotFoundError(f"No se encontró la imagen: {ruta}")
-
-        if ruta_imagen.suffix.lower() not in self.FORMATOS_SOPORTADOS:
-            raise ValueError(
-                f"Formato no soportado: {ruta_imagen.suffix}. "
-                f"Formatos permitidos: {self.FORMATOS_SOPORTADOS}"
+            raise FileNotFoundError(
+                f"No se encontró la imagen: {ruta}"
             )
 
-        imagen = cv2.imread(str(ruta_imagen))
+        if (
+            ruta_imagen.suffix.lower()
+            not in self.FORMATOS_SOPORTADOS
+        ):
+            raise ValueError(
+                (
+                    "Formato no soportado: "
+                    f"{ruta_imagen.suffix}. "
+                    "Formatos permitidos: "
+                    f"{self.FORMATOS_SOPORTADOS}"
+                )
+            )
 
-        if imagen is None:
-            raise ValueError(f"No se pudo leer la imagen: {ruta}")
+        try:
+            with Image.open(
+                ruta_imagen
+            ) as imagen:
 
-        return imagen
+                imagen = (
+                    ImageOps.exif_transpose(
+                        imagen
+                    )
+                )
+
+                imagen_rgb = (
+                    imagen.convert("RGB")
+                )
+
+                imagen_numpy = np.array(
+                    imagen_rgb
+                )
+
+        except (
+            UnidentifiedImageError,
+            OSError
+        ) as error:
+            raise ValueError(
+                f"No se pudo leer la imagen: {ruta}"
+            ) from error
+
+        return cv2.cvtColor(
+            imagen_numpy,
+            cv2.COLOR_RGB2BGR
+        )
     
     def cargar_video(self, ruta: str):
     

@@ -12,19 +12,21 @@ from src.visualization.visualizador_resultados import VisualizadorResultados
 from src.storage.gestor_almacenamiento import GestorAlmacenamiento
 from src.processing.procesador_video import ProcesadorVideo
 from src.domain.usuario import Usuario
+from src.gestion.cliente_api import ClienteGestion
+
 class InterfazVisualizacion:
 
-    def __init__(self, usuario_autenticado: Usuario):
+    def __init__(self, parent, usuario_autenticado: Usuario, cliente_api: ClienteGestion):
 
         self.usuario_autenticado = usuario_autenticado
+        self.cliente_api = cliente_api
 
-        self.ventana = tk.Tk()
+        self.ventana = tk.Toplevel(parent)
 
         self.ventana.title(
             "Sistema de Reconocimiento de Señales"
         )
 
-        self.ventana.geometry("1200x750")
         self.centrar_ventana(1200, 750)
 
         self.imagen_tk = None
@@ -41,8 +43,23 @@ class InterfazVisualizacion:
         self.indice_frame_video_actual = 0
         self.modo_video = False
 
+        modelo_activo = (
+            self.cliente_api
+            .obtener_modelo_activo()
+        )
+
+        self.modelo_activo_id = (
+            modelo_activo["id"]
+        )
+
+        self.modelo_activo_version = (
+            modelo_activo["version"]
+        )
+
         self.detector = DetectorSenales(
-            modelo_path="models/best.pt",
+            modelo_path=(
+                modelo_activo["ruta_modelo"]
+            ),
             confianza_minima=0.5
         )
 
@@ -184,6 +201,14 @@ class InterfazVisualizacion:
             pady=10
         )
 
+        self.label_estado.config(
+            text=(
+                "Sistema listo.\n"
+                f"Modelo activo: "
+                f"{self.modelo_activo_version}"
+            )
+        )
+        
         # ===== RESULTADOS =====
 
         titulo_resultados = tk.Label(
@@ -290,10 +315,8 @@ class InterfazVisualizacion:
         self.frame_navegacion_video.pack_forget()
 
         ruta = filedialog.askopenfilename(
+            parent=self.ventana,
             title="Seleccionar imagen",
-            filetypes=[
-                ("Imágenes", "*.jpg *.jpeg *.png")
-            ]
         )
 
         if not ruta:
@@ -452,7 +475,8 @@ class InterfazVisualizacion:
         )
 
         self.imagen_tk = ImageTk.PhotoImage(
-            imagen
+            imagen,
+            master=self.ventana
         )
 
         self.canvas.configure(
@@ -581,6 +605,7 @@ class InterfazVisualizacion:
     def procesar_video(self):
 
         ruta = filedialog.askopenfilename(
+            parent=self.ventana,
             title="Seleccionar video",
             filetypes=[
                 ("Videos", "*.mp4 *.avi *.mov")
@@ -908,4 +933,4 @@ class InterfazVisualizacion:
 
     def ejecutar(self):
 
-        self.ventana.mainloop()
+        self.ventana.wait_window()

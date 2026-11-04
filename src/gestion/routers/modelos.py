@@ -35,6 +35,7 @@ from src.gestion.servicios.entrenamiento_modelo import (
 from src.gestion.servicios.modelo import (
     listar_modelos,
     activar_modelo,
+    obtener_modelo_activo,
 )
 
 
@@ -308,6 +309,55 @@ def activar_version_modelo(
 
         activo=modelo.activo,
 
+        fecha_entrenamiento=(
+            modelo.fecha_entrenamiento
+        )
+    )
+
+@router.get(
+    "/activo",
+    response_model=VersionModeloRespuesta
+)
+def consultar_modelo_activo(
+    sesion: Session = Depends(
+        obtener_sesion
+    ),
+    usuario: UsuarioBD = Depends(
+        requerir_roles(
+            RolUsuario.CAMPO,
+            RolUsuario.OPERADOR,
+            RolUsuario.ADMINISTRADOR,
+        )
+    )
+):
+    modelo = obtener_modelo_activo(
+        sesion
+    )
+
+    if modelo is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "No existe un modelo activo."
+            )
+        )
+
+    return VersionModeloRespuesta(
+        id=modelo.id,
+        dataset_id=modelo.dataset_id,
+        version=modelo.version,
+        ruta_modelo=modelo.ruta_modelo,
+        precision=modelo.precision,
+        recall=modelo.recall,
+        map_50=modelo.map_50,
+        map_50_95=modelo.map_50_95,
+        latencia_promedio_ms=(
+            modelo.latencia_promedio_ms
+        ),
+        fps=modelo.fps,
+        activo=modelo.activo,
         fecha_entrenamiento=(
             modelo.fecha_entrenamiento
         )

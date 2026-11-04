@@ -70,3 +70,17 @@ def activar_modelo(
     )
 
     return modelo
+
+def obtener_modelo_activo(
+    sesion: Session
+) -> VersionModeloBD | None:
+
+    return sesion.scalar(
+        select(
+            VersionModeloBD
+        )
+        .where(
+            VersionModeloBD.activo
+            == True
+        )
+    )

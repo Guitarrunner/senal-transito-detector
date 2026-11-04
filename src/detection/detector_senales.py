@@ -12,13 +12,15 @@ class DetectorSenales:
         self.modelo_path = self._resolver_modelo(modelo_path)
         self.modelo = YOLO(self.modelo_path)
         self.confianza_minima = confianza_minima
-        self.clases = self._cargar_clases()
+        self.clases = self._obtener_clases_modelo()
 
     def detectar(self, ruta_imagen: str, imagen_id: str):
-        resultados = self.modelo(ruta_imagen,
-            conf=0.25,
+        resultados = self.modelo(
+            ruta_imagen,
+            conf=self.confianza_minima,
             iou=0.45,
-            agnostic_nms=True)
+            agnostic_nms=True
+        )
         detecciones = []
         etiquetas = []
 
@@ -73,18 +75,19 @@ class DetectorSenales:
 
         return "yolov8n.pt"
     
-    def _cargar_clases(self, yaml_path="dataset/dataset.yaml"):
-        ruta = Path(yaml_path)
+    def _obtener_clases_modelo(self):
 
-        if not ruta.exists():
-            return {}
-
-        with open(ruta, "r", encoding="utf-8") as archivo:
-            datos = yaml.safe_load(archivo)
-
-        nombres = datos.get("names", {})
+        nombres = self.modelo.names
 
         if isinstance(nombres, dict):
-            return {int(k): v for k, v in nombres.items()}
+            return {
+                int(clase_id): nombre
+                for clase_id, nombre
+                in nombres.items()
+            }
 
-        return {i: nombre for i, nombre in enumerate(nombres)}
+        return {
+            indice: nombre
+            for indice, nombre
+            in enumerate(nombres)
+        }

@@ -448,5 +448,14 @@ class ClienteGestion:
         )
 
         return True
+
+    def obtener_modelo_activo(self):
+
+        respuesta = self._request(
+            "GET",
+            "/modelos/activo"
+        )
+
+        return respuesta.json()
 class SesionExpiradaError(RuntimeError):
     pass
