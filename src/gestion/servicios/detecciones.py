@@ -3,6 +3,8 @@ import uuid
 
 from pathlib import Path
 
+from sqlalchemy.exc import IntegrityError
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -19,6 +21,24 @@ from src.gestion.modelos import (
     RevisionDeteccionBD
 )
 
+def buscar_deteccion_existente(sesion, identificador):
+
+    consulta = (
+        select(
+            DeteccionBD,
+            ClaseSenalBD
+        )
+        .join(
+            ClaseSenalBD,
+            DeteccionBD.clase_senal_id
+            == ClaseSenalBD.id
+        )
+        .where(
+            DeteccionBD.id == identificador
+        )
+    )
+
+    return sesion.execute(consulta).first()
 
 def crear_deteccion(
     sesion: Session,
@@ -30,10 +50,23 @@ def crear_deteccion(
     bbox_y2: int,
     version_modelo_id: uuid.UUID,
     evidencia_bytes: bytes,
+    id_local: uuid.UUID | None = None,
     latitud_captura: float | None = None,
     longitud_captura: float | None = None,
-    distancia_estimada: float | None = None,
+    distancia_estimada: float | None = None,  
 ):
+
+    identificador = (
+        id_local if id_local is not None else uuid.uuid4()
+    )
+
+    existente = buscar_deteccion_existente(
+        sesion,
+        identificador
+    )
+
+    if existente is not None:
+        return existente[0], existente[1]
 
     clase = sesion.get(
         ClaseSenalBD,
@@ -95,6 +128,20 @@ def crear_deteccion(
         anonimizada=False
     )
 
+    identificador = (
+        id_local
+        if id_local is not None
+        else uuid.uuid4()
+    )
+
+    existente = buscar_deteccion_existente(
+        sesion,
+        identificador
+    )
+
+    if existente is not None:
+        return existente[0], existente[1]
+
     try:
         sesion.add(
             evidencia
@@ -106,6 +153,7 @@ def crear_deteccion(
         sesion.flush()
 
         deteccion = DeteccionBD(
+            id=identificador,
             clase_senal_id=clase_senal_id,
             evidencia_id=evidencia.id,
             confianza=confianza,
@@ -130,18 +178,30 @@ def crear_deteccion(
 
         sesion.commit()
 
-        sesion.refresh(
-            deteccion
+    except IntegrityError:
+
+        sesion.rollback()
+        ruta_archivo.unlink(missing_ok=True)
+
+        # Otra solicitud pudo guardar el mismo ID
+        # mientras esta se estaba procesando.
+        existente = buscar_deteccion_existente(
+            sesion,
+            identificador
         )
+
+        if existente is not None:
+            return existente[0], existente[1]
+
+        raise
 
     except Exception:
 
         sesion.rollback()
-
-        if ruta_archivo.exists():
-            ruta_archivo.unlink()
-
+        ruta_archivo.unlink(missing_ok=True)
         raise
+
+    sesion.refresh(deteccion)
 
     return deteccion, clase
 

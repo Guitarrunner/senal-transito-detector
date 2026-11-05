@@ -6,6 +6,7 @@ venv/
 
 runs/
 
+data/cola_local.sqlite3*
 data/processed/*
 data/evidence/*
 data/metadata/*

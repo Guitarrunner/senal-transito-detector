@@ -68,6 +68,7 @@ async def registrar_deteccion(
     latitud_captura: float | None = Form(None),
     longitud_captura: float | None = Form(None),
     distancia_estimada: float | None = Form(None),
+    id_local: uuid.UUID | None = Form(None),
 
     evidencia: UploadFile = File(...),
 
@@ -116,7 +117,9 @@ async def registrar_deteccion(
 
             distancia_estimada=(
                 distancia_estimada
-            )
+            ),
+
+            id_local= id_local
         )
 
     except ValueError as error:

@@ -4,6 +4,8 @@ import time
 import cv2
 import queue
 
+import requests
+
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 from datetime import datetime
@@ -14,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.dataset.exportador_dataset import ExportadorDataset
 from src.processing.procesador_imagen import ProcesadorImagen
 from src.detection.detector_senales import DetectorSenales
+from src.storage.cola_local import ColaLocal
 from src.visualization.visualizador_resultados import VisualizadorResultados
 from src.storage.gestor_almacenamiento import GestorAlmacenamiento
 from src.processing.procesador_video import ProcesadorVideo
@@ -22,12 +25,14 @@ from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.processing.procesador_camara import ProcesadorCamara
 from src.detection.rastreador_temporal import RastreadorTemporal
 from src.locacion.proveedor_gps_fijo import ProveedorGPSFijo
+from src.gestion.cliente_api import ErrorAPI
 class InterfazVisualizacion:
 
     def __init__(self, parent, usuario_autenticado: Usuario, cliente_api: ClienteGestion):
 
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
+        self.cola_local = ColaLocal()
         self.sesion_expirada = False
         self.verificacion_sesion_programada = None
         self.sesion_cerrada = False
@@ -67,6 +72,7 @@ class InterfazVisualizacion:
         )
 
         self.guardados_en_proceso = 0
+        self.guardado_cerrado = False
 
         self.verificacion_guardados_programada = None
 
@@ -1370,39 +1376,26 @@ class InterfazVisualizacion:
 
         self._cerrar_ventana()
 
-    def _guardar_deteccion_camara(
-        self,
-        candidato
-    ):
+    def _guardar_deteccion_camara(self, candidato):
 
         nombre_clase = (
-            candidato.tipo_senal
-            .strip()
-            .lower()
+            candidato.tipo_senal.strip().lower()
         )
 
-        clase_senal_id = (
-            self.clases_por_nombre.get(
-                nombre_clase
-            )
+        clase_senal_id = self.clases_por_nombre.get(
+            nombre_clase
         )
 
         if clase_senal_id is None:
             raise ValueError(
-                (
-                    "No existe la clase "
-                    f"'{candidato.tipo_senal}' "
-                    "en la base de datos."
-                )
+                f"No existe la clase '{candidato.tipo_senal}' "
+                "en la base de datos."
             )
 
         exito, buffer = cv2.imencode(
             ".jpg",
             candidato.mejor_frame,
-            [
-                cv2.IMWRITE_JPEG_QUALITY,
-                95
-            ]
+            [cv2.IMWRITE_JPEG_QUALITY, 95]
         )
 
         if not exito:
@@ -1410,62 +1403,43 @@ class InterfazVisualizacion:
                 "No se pudo generar la evidencia."
             )
 
-        evidencia_bytes = (
-            buffer.tobytes()
-        )
-
         bbox = candidato.mejor_bbox
 
-        respuesta = (
-            self.cliente_api
-            .registrar_deteccion(
-                clase_senal_id=(
-                    clase_senal_id
-                ),
+        datos = {
+            "clase_senal_id": int(clase_senal_id),
+            "confianza": float(candidato.mejor_confianza),
 
-                confianza=(
-                    candidato.mejor_confianza
-                ),
+            "bbox_x1": int(bbox["x"]),
+            "bbox_y1": int(bbox["y"]),
+            "bbox_x2": int(
+                bbox["x"] + bbox["ancho"]
+            ),
+            "bbox_y2": int(
+                bbox["y"] + bbox["alto"]
+            ),
 
-                bbox_x1=(
-                    bbox["x"]
-                ),
+            "version_modelo_id": str(
+                self.modelo_activo_id
+            ),
 
-                bbox_y1=(
-                    bbox["y"]
-                ),
+            "latitud_captura": (
+                float(candidato.mejor_latitud)
+                if candidato.mejor_latitud is not None
+                else None
+            ),
 
-                bbox_x2=(
-                    bbox["x"]
-                    + bbox["ancho"]
-                ),
-
-                bbox_y2=(
-                    bbox["y"]
-                    + bbox["alto"]
-                ),
-
-                version_modelo_id=(
-                    self.modelo_activo_id
-                ),
-
-                evidencia_bytes=(
-                    evidencia_bytes
-                ),
-
-                latitud_captura=(
-                    candidato.mejor_latitud
-                ),
-
-                longitud_captura=(
-                    candidato.mejor_longitud
-                ),
-
-                notificar_sesion_expirada=False
+            "longitud_captura": (
+                float(candidato.mejor_longitud)
+                if candidato.mejor_longitud is not None
+                else None
             )
-        )
+        }
 
-        return respuesta
+        return self.cola_local.encolar(
+            usuario_id=self.usuario_autenticado.id,
+            datos=datos,
+            evidencia_bytes=buffer.tobytes()
+        )
 
     def _registrar_actividad(
         self,
@@ -1548,116 +1522,129 @@ class InterfazVisualizacion:
 
         self.ventana.destroy()
 
-    def _encolar_deteccion_camara(
-        self,
-        candidato
-    ):
+    def _encolar_deteccion_camara(self, candidato):
 
-        self.guardados_en_proceso += 1
-
-        futuro = (
-            self.executor_guardado.submit(
-                self._guardar_deteccion_camara,
-                candidato
+        try:
+            identificador = (
+                self._guardar_deteccion_camara(candidato)
             )
+
+        except Exception as error:
+            candidato.confirmado = False
+
+            raise RuntimeError(
+                "No se pudo guardar la detección "
+                "en la cola local."
+            ) from error
+
+        print(
+            "Detección pendiente de envío:",
+            identificador,
+            candidato.tipo_senal
         )
 
-        futuro.add_done_callback(
-            lambda futuro,
-            candidato=candidato:
-            self.cola_resultados_guardado.put(
-                (
-                    candidato,
-                    futuro
-                )
-            )
-        )
+    def _procesar_resultados_guardado(self):
 
-    def _procesar_resultados_guardado(
-        self
-    ):
+        self.verificacion_guardados_programada = None
+
+        if self.guardado_cerrado:
+            return
 
         while True:
-
             try:
-                candidato, futuro = (
+                futuro = (
                     self.cola_resultados_guardado
                     .get_nowait()
                 )
-
             except queue.Empty:
                 break
 
-            self.guardados_en_proceso = max(
-                0,
-                self.guardados_en_proceso - 1
-            )
+            self.guardados_en_proceso = 0
 
             try:
-                respuesta = futuro.result()
+                resultado = futuro.result()
 
             except SesionExpiradaError:
-
-                candidato.confirmado = False
-
                 self.cerrar_sesion_expirada()
-
                 return
 
             except Exception as error:
+                # Por ejemplo, un problema al acceder
+                # a SQLite. Detener envíos y conservar datos.
+                self._cerrar_guardado_async()
 
-                candidato.confirmado = False
+                messagebox.showerror(
+                    "Error de sincronización",
+                    (
+                        "Se detuvo el envío de pendientes.\n"
+                        "Los registros no confirmados permanecen "
+                        "en la cola local.\n\n"
+                        f"{error}"
+                    ),
+                    parent=self.ventana
+                )
+                return
+
+            if resultado is None:
+                continue
+
+            estado, identificador, error = resultado
+
+            if estado == "enviado":
+                self.detecciones_guardadas_sesion += 1
 
                 print(
-                    "No se pudo guardar "
-                    "la detección:",
+                    "Detección enviada:",
+                    identificador
+                )
+
+            elif estado == "reintento":
+                print(
+                    "Detección pendiente de reintento:",
+                    identificador,
                     error
                 )
 
             else:
-
-                self.detecciones_guardadas_sesion += 1
-
                 print(
-                    "Detección guardada:",
-                    respuesta["id"],
-                    candidato.tipo_senal,
-                    (
-                        f"{candidato.mejor_confianza:.2f}"
-                    )
+                    "Detección conservada para revisión:",
+                    identificador,
+                    error
                 )
-
-        try:
-            ventana_existe = (
-                self.ventana.winfo_exists()
-            )
-
-        except tk.TclError:
-            ventana_existe = False
-
-        if ventana_existe:
-
-            self.verificacion_guardados_programada = (
-                self.ventana.after(
-                    100,
-                    self._procesar_resultados_guardado
-                )
-            )
-
-    def _cerrar_guardado_async(
-        self
-    ):
 
         if (
-            self.verificacion_guardados_programada
-            is not None
+            not self.guardado_cerrado
+            and self.guardados_en_proceso == 0
         ):
+            futuro = self.executor_guardado.submit(
+                self._enviar_siguiente_pendiente
+            )
 
+            self.guardados_en_proceso = 1
+
+            futuro.add_done_callback(
+                self.cola_resultados_guardado.put
+            )
+
+        self.verificacion_guardados_programada = (
+            self.ventana.after(
+                1000,
+                self._procesar_resultados_guardado
+            )
+        )
+
+    def _cerrar_guardado_async(self):
+
+        if self.guardado_cerrado:
+            return
+
+        self.guardado_cerrado = True
+
+        if self.verificacion_guardados_programada is not None:
             try:
                 self.ventana.after_cancel(
                     self.verificacion_guardados_programada
                 )
-
             except tk.TclError:
                 pass
 
@@ -1666,4 +1653,92 @@ class InterfazVisualizacion:
         self.executor_guardado.shutdown(
             wait=False,
             cancel_futures=True
+        )
+
+    def _enviar_siguiente_pendiente(self):
+
+        if self.guardado_cerrado:
+            return None
+
+        pendiente = self.cola_local.obtener_siguiente(
+            self.usuario_autenticado.id
+        )
+
+        if pendiente is None:
+            return None
+
+        identificador = pendiente["id"]
+
+        try:
+            respuesta = self.cliente_api.registrar_deteccion(
+                **pendiente["datos"],
+                evidencia_bytes=pendiente["evidencia"],
+                id_local=identificador,
+                notificar_sesion_expirada=False
+            )
+
+            # Solo borrar si la API confirma el mismo ID.
+            if str(respuesta["id"]) != identificador:
+                raise RuntimeError(
+                    "La API devolvió un ID diferente "
+                    "al de la detección enviada."
+                )
+
+        except SesionExpiradaError:
+            # Mantener el pendiente para el próximo login.
+            raise
+
+        except requests.RequestException as error:
+            self.cola_local.registrar_error(
+                identificador,
+                error,
+                reintentable=True
+            )
+
+            return (
+                "reintento",
+                identificador,
+                str(error)
+            )
+
+        except ErrorAPI as error:
+            reintentable = (
+                error.status_code in (408, 429)
+                or 500 <= error.status_code <= 599
+            )
+
+            self.cola_local.registrar_error(
+                identificador,
+                error,
+                reintentable=reintentable
+            )
+
+            return (
+                "reintento" if reintentable else "bloqueado",
+                identificador,
+                str(error)
+            )
+
+        except Exception as error:
+            # Conservar el registro para revisar el error.
+            self.cola_local.registrar_error(
+                identificador,
+                error,
+                reintentable=False
+            )
+
+            return (
+                "bloqueado",
+                identificador,
+                str(error)
+            )
+
+        self.cola_local.confirmar_envio(
+            identificador
+        )
+
+        return (
+            "enviado",
+            identificador,
+            None
         )

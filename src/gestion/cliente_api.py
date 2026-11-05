@@ -9,8 +9,6 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 load_dotenv()
-
-
 class ClienteGestion:
 
     def __init__(self, access_token: str, on_sesion_expirada=None):
@@ -56,8 +54,9 @@ class ClienteGestion:
         except ValueError:
             detalle = respuesta.text
 
-        raise RuntimeError(
-            f"Error {respuesta.status_code}: {detalle}"
+        raise ErrorAPI(
+            respuesta.status_code,
+            detalle
         )
 
     def listar_datasets(self):
@@ -479,8 +478,10 @@ class ClienteGestion:
         longitud_captura=None,
         distancia_estimada=None,
 
-        notificar_sesion_expirada: bool = True
+        notificar_sesion_expirada: bool = True,
+        id_local: str | None = None
         ):
+
 
         datos = {
             "clase_senal_id": (
@@ -498,6 +499,9 @@ class ClienteGestion:
                 version_modelo_id
             )
         }
+
+        if id_local is not None:
+            datos["id_local"] = str(id_local)
 
         if latitud_captura is not None:
             datos["latitud_captura"] = (
@@ -646,3 +650,11 @@ class ClienteGestion:
 
 class SesionExpiradaError(RuntimeError):
     pass
+
+class ErrorAPI(RuntimeError):
+
+    def __init__(self, status_code, detalle):
+        self.status_code = status_code
+        super().__init__(
+            f"Error {status_code}: {detalle}"
+        )

@@ -536,24 +536,24 @@ class InterfazGestion:
 
         tabla.column(
             "clase",
-            width=180
+            width=60
         )
 
         tabla.column(
             "confianza",
-            width=120,
+            width=60,
             anchor="center"
         )
 
         tabla.column(
             "fecha",
-            width=200,
+            width=160,
             anchor="center"
         )
 
         tabla.column(
             "estado",
-            width=120,
+            width=90,
             anchor="center"
         )
 
