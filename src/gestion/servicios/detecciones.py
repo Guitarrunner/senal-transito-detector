@@ -8,6 +8,9 @@ from sqlalchemy import select
 
 from src.domain.estado_revision import EstadoRevision
 
+from src.gestion.servicios.senales import asociar_deteccion_a_inventario
+
+
 from src.gestion.modelos import (
     ClaseSenalBD,
     DeteccionBD,
@@ -144,7 +147,8 @@ def crear_deteccion(
 
 def listar_detecciones(
     sesion: Session,
-    estado: EstadoRevision | None = None
+    estado: EstadoRevision | None = None,
+    senal_id: uuid.UUID | None = None
 ):
 
     consulta = (
@@ -163,6 +167,12 @@ def listar_detecciones(
         consulta = consulta.where(
             DeteccionBD.estado_revision
             == estado
+        )
+
+    if senal_id is not None:
+        consulta = consulta.where(
+            DeteccionBD.senal_id
+            == senal_id
         )
 
     consulta = consulta.order_by(
@@ -258,6 +268,12 @@ def revisar_deteccion(
     )
 
     deteccion.estado_revision = resultado
+
+    if resultado == EstadoRevision.APPROVED:
+        asociar_deteccion_a_inventario(
+            sesion=sesion,
+            deteccion=deteccion
+        )
 
     try:
 

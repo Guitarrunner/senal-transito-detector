@@ -17,6 +17,9 @@ class CandidatoTemporal:
     apariciones: int
     ultima_vez: float
 
+    mejor_latitud: float | None = None
+    mejor_longitud: float | None = None
+    
     confirmado: bool = False
 
 
@@ -47,7 +50,8 @@ class RastreadorTemporal:
         self,
         frame,
         detecciones,
-        etiquetas
+        etiquetas,
+        ubicacion=None
     ):
         ahora = time.monotonic()
 
@@ -98,7 +102,19 @@ class RastreadorTemporal:
                     mejor_frame=frame.copy(),
 
                     apariciones=1,
-                    ultima_vez=ahora
+                    ultima_vez=ahora,
+
+                     mejor_latitud=(
+                        ubicacion.latitud
+                        if ubicacion is not None
+                        else None
+                    ),
+
+                    mejor_longitud=(
+                        ubicacion.longitud
+                        if ubicacion is not None
+                        else None
+                    )
                 )
 
                 self.candidatos.append(
@@ -131,6 +147,18 @@ class RastreadorTemporal:
 
                     candidato.mejor_frame = (
                         frame.copy()
+                    )
+
+                    candidato.mejor_latitud = (
+                        ubicacion.latitud
+                        if ubicacion is not None
+                        else None
+                    )
+
+                    candidato.mejor_longitud = (
+                        ubicacion.longitud
+                        if ubicacion is not None
+                        else None
                     )
 
             candidatos_usados.add(

@@ -21,6 +21,7 @@ from src.domain.usuario import Usuario
 from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.processing.procesador_camara import ProcesadorCamara
 from src.detection.rastreador_temporal import RastreadorTemporal
+from src.locacion.proveedor_gps_fijo import ProveedorGPSFijo
 class InterfazVisualizacion:
 
     def __init__(self, parent, usuario_autenticado: Usuario, cliente_api: ClienteGestion):
@@ -96,6 +97,8 @@ class InterfazVisualizacion:
         self.modo_video = False
 
         self.procesador_camara = ProcesadorCamara()
+
+        self.proveedor_gps = ProveedorGPSFijo()
 
         self.tiempo_frame_anterior = None
         self.fps_actual = 0.0
@@ -1160,12 +1163,16 @@ class InterfazVisualizacion:
                 )
             )
 
+            ubicacion = self.proveedor_gps.obtener_ubicacion()
+            
+
             confirmadas = (
                 self.rastreador_temporal
                 .actualizar(
                     frame,
                     detecciones,
-                    etiquetas
+                    etiquetas,
+                    ubicacion
                 )
             )
 
@@ -1444,6 +1451,14 @@ class InterfazVisualizacion:
 
                 evidencia_bytes=(
                     evidencia_bytes
+                ),
+
+                latitud_captura=(
+                    candidato.mejor_latitud
+                ),
+
+                longitud_captura=(
+                    candidato.mejor_longitud
                 ),
 
                 notificar_sesion_expirada=False

@@ -543,13 +543,19 @@ class ClienteGestion:
 
     def listar_detecciones(
         self,
-        estado: str | None = None
+        estado: str | None = None,
+        senal_id: str | None = None
     ):
 
         parametros = {}
 
         if estado is not None:
             parametros["estado"] = estado
+
+        if senal_id is not None:
+            parametros["senal_id"] = (
+                senal_id
+            )
 
         respuesta = self._request(
             "GET",
@@ -592,6 +598,17 @@ class ClienteGestion:
                 "resultado": resultado,
                 "comentario": comentario
             }
+        )
+
+        return respuesta.json()
+
+    def listar_senales(
+        self
+    ):
+
+        respuesta = self._request(
+            "GET",
+            "/senales"
         )
 
         return respuesta.json()

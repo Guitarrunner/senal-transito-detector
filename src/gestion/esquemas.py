@@ -236,3 +236,17 @@ class RevisionDeteccionRespuesta(BaseModel):
     comentario: str | None
 
     fecha_revision: datetime
+
+class SenalRespuesta(BaseModel):
+    id: uuid.UUID
+
+    clase_senal_id: int
+    clase_nombre: str
+
+    latitud: float
+    longitud: float
+
+    estado_actual: str | None
+
+    fecha_creacion: datetime
+    fecha_actualizacion: datetime

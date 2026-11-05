@@ -17,3 +17,5 @@ requests
 PyJWT
 python-multipart
 pillow-heif
+
+tkintermapview

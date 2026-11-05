@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
+from tkintermapview import TkinterMapView
 
 from io import BytesIO
 
@@ -812,37 +813,411 @@ class InterfazGestion:
 
     def mostrar_inventario(self):
 
+        self._limpiar_contenido_actual()
+
         self.titulo_contenido.config(
             text="Inventario"
         )
 
-        self.texto_contenido.config(
+        self.texto_contenido.pack_forget()
+
+        self.label_estado.config(
+            text="Consultando inventario..."
+        )
+
+        try:
+
+            senales = (
+                self.cliente_api
+                .listar_senales()
+            )
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+
+        self.contenido_actual = tk.Frame(
+            self.frame_contenido
+        )
+
+        self.contenido_actual.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=10
+        )
+
+        if not senales:
+
+            mensaje = tk.Label(
+                self.contenido_actual,
+                text=(
+                    "No hay señales registradas "
+                    "en el inventario."
+                ),
+                font=("Arial", 12)
+            )
+
+            mensaje.pack(
+                pady=40
+            )
+
+            self.label_estado.config(
+                text="Inventario vacío."
+            )
+
+            return
+
+        frame_lista = tk.Frame(
+            self.contenido_actual
+        )
+
+        frame_lista.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(0, 10)
+        )
+
+
+        frame_detalle = tk.Frame(
+            self.contenido_actual,
+            bd=1,
+            relief="solid"
+        )
+
+        frame_detalle.pack(
+            side="right",
+            fill="both",
+            expand=True,
+            padx=(10, 0)
+        )
+
+        columnas = (
+            "clase",
+            "latitud",
+            "longitud",
+            "estado",
+            "actualizacion"
+        )
+
+        tabla = ttk.Treeview(
+            frame_lista,
+            columns=columnas,
+            show="headings"
+        )
+
+        tabla.heading(
+            "clase",
+            text="Clase"
+        )
+
+        tabla.heading(
+            "latitud",
+            text="Latitud"
+        )
+
+        tabla.heading(
+            "longitud",
+            text="Longitud"
+        )
+
+        tabla.heading(
+            "estado",
+            text="Estado"
+        )
+
+        tabla.heading(
+            "actualizacion",
+            text="Última actualización"
+        )
+
+        tabla.column(
+            "clase",
+            width=180
+        )
+
+        tabla.column(
+            "latitud",
+            width=120,
+            anchor="center"
+        )
+
+        tabla.column(
+            "longitud",
+            width=120,
+            anchor="center"
+        )
+
+        tabla.column(
+            "estado",
+            width=120,
+            anchor="center"
+        )
+
+        tabla.column(
+            "actualizacion",
+            width=180,
+            anchor="center"
+        )
+
+        self.senales_inventario = {
+            str(senal["id"]): senal
+            for senal in senales
+        }
+
+        titulo_detalle = tk.Label(
+            frame_detalle,
+            text="Detalle de señal",
+            font=("Arial", 16, "bold")
+        )
+
+        titulo_detalle.pack(
+            pady=(15, 10)
+        )
+
+
+        self.label_detalle_senal = tk.Label(
+            frame_detalle,
             text=(
-                "Aquí se mostrará el inventario "
-                "georeferenciado de señales."
+                "Seleccione una señal "
+                "del inventario."
+            ),
+            font=("Arial", 11),
+            justify="left",
+            anchor="w"
+        )
+
+        self.label_detalle_senal.pack(
+            fill="x",
+            padx=25,
+            pady=10
+        )
+
+        self.label_imagen_senal = tk.Label(
+            frame_detalle,
+            text="Sin evidencia disponible."
+        )
+
+        self.label_imagen_senal.pack(
+            pady=10
+        )
+
+        tk.Label(
+            frame_detalle,
+            text="Detecciones asociadas",
+            font=("Arial", 12, "bold")
+        ).pack(
+            pady=(15, 5)
+        )
+
+
+        self.tabla_detecciones_senal = (
+            ttk.Treeview(
+                frame_detalle,
+                columns=(
+                    "fecha",
+                    "confianza"
+                ),
+                show="headings",
+                height=10
             )
         )
 
+        self.tabla_detecciones_senal.heading(
+            "fecha",
+            text="Fecha"
+        )
+
+        self.tabla_detecciones_senal.heading(
+            "confianza",
+            text="Confianza"
+        )
+
+        self.tabla_detecciones_senal.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=10
+        )
+
+        self.tabla_inventario = tabla
+
+        self.tabla_inventario.bind(
+            "<<TreeviewSelect>>",
+            self._mostrar_detalle_senal
+        )
+
+        for senal in senales:
+
+            fecha = (
+                senal["fecha_actualizacion"]
+                .replace("T", " ")
+                [:19]
+            )
+
+            estado = (
+                senal["estado_actual"]
+                or "Sin estado"
+            )
+
+            tabla.insert(
+                "",
+                tk.END,
+                iid=str(
+                    senal["id"]
+                ),
+                values=(
+                    senal[
+                        "clase_nombre"
+                    ],
+                    f"{senal['latitud']:.6f}",
+                    f"{senal['longitud']:.6f}",
+                    estado,
+                    fecha
+                )
+            )
+
+        scrollbar = ttk.Scrollbar(
+            frame_lista,
+            orient="vertical",
+            command=tabla.yview
+        )
+
+        tabla.configure(
+            yscrollcommand=scrollbar.set
+        )
+
+        tabla.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
         self.label_estado.config(
-            text="Consultando inventario."
+            text=(
+                f"Señales en inventario: "
+                f"{len(senales)}"
+            )
         )
 
 
     def mostrar_mapa(self):
 
+        self._limpiar_contenido_actual()
+
         self.titulo_contenido.config(
             text="Mapa"
         )
 
-        self.texto_contenido.config(
-            text=(
-                "Aquí se mostrará la interfaz "
-                "cartográfica."
-            )
-        )
+        self.texto_contenido.pack_forget()
 
         self.label_estado.config(
-            text="Mostrando mapa."
+            text="Cargando señales..."
+        )
+
+        try:
+
+            senales = (
+                self.cliente_api
+                .listar_senales()
+            )
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+
+        self.contenido_actual = tk.Frame(
+            self.frame_contenido
+        )
+
+        self.contenido_actual.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=10
+        )
+
+        if not senales:
+
+            tk.Label(
+                self.contenido_actual,
+                text=(
+                    "No hay señales "
+                    "georreferenciadas."
+                ),
+                font=("Arial", 12)
+            ).pack(
+                pady=40
+            )
+
+            self.label_estado.config(
+                text="Sin señales para mostrar."
+            )
+
+            return
+
+        mapa = TkinterMapView(
+            self.contenido_actual,
+            width=900,
+            height=650,
+            corner_radius=0
+        )
+
+        mapa.pack(
+            fill="both",
+            expand=True
+        )
+
+        latitud_centro = sum(
+            senal["latitud"]
+            for senal in senales
+        ) / len(senales)
+
+        longitud_centro = sum(
+            senal["longitud"]
+            for senal in senales
+        ) / len(senales)
+
+        mapa.set_position(
+            latitud_centro,
+            longitud_centro
+        )
+
+        mapa.set_zoom(16)
+
+        for senal in senales:
+
+            mapa.set_marker(
+                senal["latitud"],
+                senal["longitud"],
+                text=(
+                    senal[
+                        "clase_nombre"
+                    ]
+                )
+            )
+
+        self.mapa_widget = mapa
+
+        self.label_estado.config(
+            text=(
+                f"Señales en mapa: "
+                f"{len(senales)}"
+            )
         )
 
 
@@ -1134,3 +1509,185 @@ class InterfazGestion:
             )
 
         self.mostrar_detecciones()
+
+    def _mostrar_detalle_senal(
+        self,
+        event=None
+    ):
+
+        seleccion = (
+            self.tabla_inventario
+            .selection()
+        )
+
+        if not seleccion:
+            return
+
+        senal_id = seleccion[0]
+
+        senal = (
+            self.senales_inventario
+            .get(
+                senal_id
+            )
+        )
+
+        if senal is None:
+            return
+
+        estado = (
+            senal["estado_actual"]
+            or "Sin estado"
+        )
+
+        texto = (
+            f"Clase: "
+            f"{senal['clase_nombre']}\n\n"
+
+            f"Latitud: "
+            f"{senal['latitud']:.6f}\n\n"
+
+            f"Longitud: "
+            f"{senal['longitud']:.6f}\n\n"
+
+            f"Estado: "
+            f"{estado}"
+        )
+
+        self.label_detalle_senal.config(
+            text=texto
+        )
+
+        self.label_estado.config(
+            text=(
+                "Consultando detecciones "
+                "asociadas..."
+            )
+        )
+
+        try:
+
+            detecciones = (
+                self.cliente_api
+                .listar_detecciones(
+                    senal_id=senal_id
+                )
+            )
+
+            self.label_imagen_senal.config(
+                image="",
+                text="Sin evidencia disponible."
+            )
+
+            self.imagen_senal_tk = None
+
+            if detecciones:
+
+                deteccion = detecciones[0]
+
+                try:
+
+                    evidencia_bytes = (
+                        self.cliente_api
+                        .obtener_evidencia_deteccion(
+                            str(deteccion["id"])
+                        )
+                    )
+
+                    imagen = Image.open(
+                        BytesIO(
+                            evidencia_bytes
+                        )
+                    ).convert("RGB")
+
+                    dibujo = ImageDraw.Draw(
+                        imagen
+                    )
+
+                    bbox = (
+                        deteccion["bbox_x1"],
+                        deteccion["bbox_y1"],
+                        deteccion["bbox_x2"],
+                        deteccion["bbox_y2"]
+                    )
+
+                    dibujo.rectangle(
+                        bbox,
+                        outline="red",
+                        width=max(
+                            2,
+                            imagen.width // 300
+                        )
+                    )
+
+                    imagen.thumbnail(
+                        (450, 300),
+                        Image.Resampling.LANCZOS
+                    )
+
+                    self.imagen_senal_tk = (
+                        ImageTk.PhotoImage(
+                            imagen
+                        )
+                    )
+
+                    self.label_imagen_senal.config(
+                        image=self.imagen_senal_tk,
+                        text=""
+                    )
+
+                    self.label_imagen_senal.image = (
+                        self.imagen_senal_tk
+                    )
+
+                except RuntimeError as error:
+                    self.label_imagen_senal.config(
+                        text="No se pudo cargar la evidencia."
+                    )
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+
+        for item in (
+            self.tabla_detecciones_senal
+            .get_children()
+        ):
+            self.tabla_detecciones_senal.delete(
+                item
+            )
+
+        for deteccion in detecciones:
+
+            fecha = (
+                deteccion["fecha_hora"]
+                .replace("T", " ")
+                [:19]
+            )
+
+            confianza = (
+                f"{deteccion['confianza'] * 100:.1f}%"
+            )
+
+            self.tabla_detecciones_senal.insert(
+                "",
+                tk.END,
+                iid=str(
+                    deteccion["id"]
+                ),
+                values=(
+                    fecha,
+                    confianza
+                )
+            )
+
+        self.label_estado.config(
+            text=(
+                f"Detecciones asociadas: "
+                f"{len(detecciones)}"
+            )
+        )

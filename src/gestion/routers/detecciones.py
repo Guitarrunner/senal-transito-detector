@@ -182,6 +182,7 @@ async def registrar_deteccion(
 )
 def obtener_detecciones(
     estado: EstadoRevision | None = None,
+    senal_id: uuid.UUID | None = None,
 
     sesion: Session = Depends(
         obtener_sesion
@@ -197,7 +198,8 @@ def obtener_detecciones(
 
     resultados = listar_detecciones(
         sesion=sesion,
-        estado=estado
+        estado=estado,
+        senal_id=senal_id
     )
 
     respuestas = []
