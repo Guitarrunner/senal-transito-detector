@@ -34,6 +34,7 @@ class InterfazGestion:
         self.detecciones_pendientes = {}
         self.imagen_evidencia_tk = None
         self.deteccion_seleccionada_id = None
+        self.senal_seleccionada_id = None
 
         self.ventana = tk.Toplevel(parent)
 
@@ -423,17 +424,80 @@ class InterfazGestion:
         )
 
 
-        frame_detalle = tk.Frame(
+        contenedor_detalle = tk.Frame(
             self.contenido_actual,
             bd=1,
             relief="solid"
         )
 
-        frame_detalle.pack(
+        contenedor_detalle.pack(
             side="right",
             fill="both",
             expand=True,
             padx=(10, 0)
+        )
+
+
+        canvas_detalle = tk.Canvas(
+            contenedor_detalle,
+            highlightthickness=0,
+            width=1,
+        )
+
+        scroll_detalle = ttk.Scrollbar(
+            contenedor_detalle,
+            orient="vertical",
+            command=canvas_detalle.yview
+        )
+
+        canvas_detalle.configure(
+            yscrollcommand=scroll_detalle.set
+        )
+
+
+        scroll_detalle.pack(
+            side="right",
+            fill="y"
+        )
+
+        canvas_detalle.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+
+        frame_detalle = tk.Frame(
+            canvas_detalle
+        )
+
+        ventana_detalle = (
+            canvas_detalle.create_window(
+                (0, 0),
+                window=frame_detalle,
+                anchor="nw"
+            )
+        )
+
+        def actualizar_scroll(event):
+            canvas_detalle.configure(
+                scrollregion=canvas_detalle.bbox("all")
+            )
+
+        def ajustar_ancho(event):
+            canvas_detalle.itemconfigure(
+                ventana_detalle,
+                width=event.width
+            )
+
+        frame_detalle.bind(
+            "<Configure>",
+            actualizar_scroll
+        )
+
+        canvas_detalle.bind(
+            "<Configure>",
+            ajustar_ancho
         )
 
         columnas = (
@@ -884,17 +948,72 @@ class InterfazGestion:
         )
 
 
-        frame_detalle = tk.Frame(
+        contenedor_detalle = tk.Frame(
             self.contenido_actual,
             bd=1,
             relief="solid"
         )
 
-        frame_detalle.pack(
+        contenedor_detalle.pack(
             side="right",
             fill="both",
             expand=True,
             padx=(10, 0)
+        )
+
+        canvas_detalle = tk.Canvas(
+            contenedor_detalle,
+            highlightthickness=0
+        )
+
+        scroll_detalle = ttk.Scrollbar(
+            contenedor_detalle,
+            orient="vertical",
+            command=canvas_detalle.yview
+        )
+
+        canvas_detalle.configure(
+            yscrollcommand=scroll_detalle.set
+        )
+
+        scroll_detalle.pack(
+            side="right",
+            fill="y"
+        )
+
+        canvas_detalle.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        frame_detalle = tk.Frame(canvas_detalle)
+
+        ventana_detalle = canvas_detalle.create_window(
+            (0, 0),
+            window=frame_detalle,
+            anchor="nw"
+        )
+
+        def actualizar_scroll(event):
+            canvas_detalle.configure(
+                scrollregion=canvas_detalle.bbox("all")
+            )
+
+        def ajustar_ancho(event):
+            canvas_detalle.itemconfigure(
+                canvas_detalle,
+                width=event.width
+            )
+
+        frame_detalle.bind(
+            "<Configure>",
+            actualizar_scroll
+        )
+
+        frame_detalle.bind(
+            "<Configure>",
+            ajustar_ancho
         )
 
         columnas = (
@@ -998,6 +1117,53 @@ class InterfazGestion:
             pady=10
         )
 
+        frame_estado = tk.Frame(
+            frame_detalle
+        )
+
+        frame_estado.pack(
+            fill="x",
+            padx=20,
+            pady=10
+        )
+
+
+        tk.Label(
+            frame_estado,
+            text="Estado:"
+        ).pack(
+            pady=(0, 5)
+        )
+
+
+        self.combo_estado_senal = ttk.Combobox(
+            frame_estado,
+            values=(
+                "BUENO",
+                "REGULAR",
+                "MALO"
+            ),
+            state="readonly",
+            width=20
+        )
+
+        self.combo_estado_senal.pack(
+            pady=(0, 8)
+        )
+
+
+        self.boton_actualizar_estado = tk.Button(
+            frame_estado,
+            text="Actualizar estado",
+            command=self._actualizar_estado_senal,
+            state="disabled",
+            width=20
+        )
+
+        self.boton_actualizar_estado.pack(
+            pady=(0, 10)
+        )
+
         self.label_imagen_senal = tk.Label(
             frame_detalle,
             text="Sin evidencia disponible."
@@ -1024,7 +1190,7 @@ class InterfazGestion:
                     "confianza"
                 ),
                 show="headings",
-                height=10
+                height=5
             )
         )
 
@@ -1040,7 +1206,6 @@ class InterfazGestion:
 
         self.tabla_detecciones_senal.pack(
             fill="both",
-            expand=True,
             padx=20,
             pady=10
         )
@@ -1050,6 +1215,89 @@ class InterfazGestion:
         self.tabla_inventario.bind(
             "<<TreeviewSelect>>",
             self._mostrar_detalle_senal
+        )
+
+        tk.Label(
+            frame_detalle,
+            text="Historial de estado",
+            font=("Arial", 12, "bold")
+        ).pack(
+            pady=(10, 5)
+        )
+
+
+        self.tabla_historial_senal = ttk.Treeview(
+            frame_detalle,
+            columns=(
+                "fecha",
+                "cambio",
+                "usuario",
+                "comentario"
+            ),
+            show="headings",
+            height=5
+        )
+
+        for columna in self.tabla_historial_senal["columns"]:
+            self.tabla_historial_senal.column(
+                columna,
+                width=100,
+                minwidth=40,
+                stretch=True
+            )
+
+        for columna in self.tabla_detecciones_senal["columns"]:
+            self.tabla_detecciones_senal.column(
+                columna,
+                width=100,
+                minwidth=40,
+                stretch=True
+            )
+
+        self.tabla_historial_senal.heading(
+            "fecha",
+            text="Fecha"
+        )
+
+        self.tabla_historial_senal.heading(
+            "cambio",
+            text="Cambio"
+        )
+
+        self.tabla_historial_senal.heading(
+            "usuario",
+            text="Usuario"
+        )
+
+        self.tabla_historial_senal.heading(
+            "comentario",
+            text="Comentario"
+        )
+
+        self.tabla_historial_senal.column(
+            "fecha",
+            width=140
+        )
+
+        self.tabla_historial_senal.column(
+            "cambio",
+            width=150
+        )
+
+        self.tabla_historial_senal.column(
+            "usuario",
+            width=100
+        )
+
+        self.tabla_historial_senal.column(
+            "comentario",
+            width=220
+        )
+
+        self.tabla_historial_senal.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 15)
         )
 
         for senal in senales:
@@ -1525,6 +1773,8 @@ class InterfazGestion:
 
         senal_id = seleccion[0]
 
+        self.senal_seleccionada_id = senal_id
+
         senal = (
             self.senales_inventario
             .get(
@@ -1534,6 +1784,26 @@ class InterfazGestion:
 
         if senal is None:
             return
+
+        estado_actual = (
+            senal["estado_actual"]
+        )
+
+        if estado_actual is not None:
+
+            self.combo_estado_senal.set(
+                estado_actual
+            )
+
+        else:
+
+            self.combo_estado_senal.set(
+                ""
+            )
+
+        self.boton_actualizar_estado.config(
+            state="normal"
+        )
 
         estado = (
             senal["estado_actual"]
@@ -1689,5 +1959,252 @@ class InterfazGestion:
             text=(
                 f"Detecciones asociadas: "
                 f"{len(detecciones)}"
+            )
+        )
+
+        self._cargar_historial_senal(
+            senal_id
+        )
+
+    def _cargar_historial_senal(
+        self,
+        senal_id: str
+    ):
+
+        try:
+
+            historial = (
+                self.cliente_api
+                .obtener_historial_senal(
+                    senal_id
+                )
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+
+        for item in (
+            self.tabla_historial_senal
+            .get_children()
+        ):
+
+            self.tabla_historial_senal.delete(
+                item
+            )
+
+        for cambio in historial:
+
+            fecha = (
+                cambio["fecha_cambio"]
+                .replace("T", " ")
+                [:19]
+            )
+
+            anterior = (
+                cambio["estado_anterior"]
+                or "Sin evaluar"
+            )
+
+            nuevo = (
+                cambio["estado_nuevo"]
+            )
+
+            comentario = (
+                cambio["comentario"]
+                or ""
+            )
+
+            self.tabla_historial_senal.insert(
+                "",
+                tk.END,
+                values=(
+                    fecha,
+                    f"{anterior} → {nuevo}",
+                    cambio["nombre_usuario"],
+                    comentario
+                )
+            )
+
+    def _actualizar_estado_senal(
+        self
+    ):
+
+        senal_id = (
+            self.senal_seleccionada_id
+        )
+
+        if senal_id is None:
+            return
+
+        estado_nuevo = (
+            self.combo_estado_senal
+            .get()
+            .strip()
+        )
+
+        if not estado_nuevo:
+
+            messagebox.showwarning(
+                "Estado requerido",
+                "Seleccione un estado."
+            )
+
+            return
+
+        senal = (
+            self.senales_inventario
+            .get(
+                senal_id
+            )
+        )
+
+        if senal is None:
+            return
+
+        if (
+            senal["estado_actual"]
+            == estado_nuevo
+        ):
+
+            messagebox.showinfo(
+                "Sin cambios",
+                (
+                    "La señal ya tiene "
+                    f"el estado {estado_nuevo}."
+                )
+            )
+
+            return
+
+        comentario = simpledialog.askstring(
+            "Actualizar estado",
+            (
+                "Comentario sobre el "
+                "cambio (opcional):"
+            ),
+            parent=self.ventana
+        )
+
+        if comentario is None:
+            return
+
+        comentario = comentario.strip()
+
+        if not comentario:
+            comentario = None
+
+        confirmar = messagebox.askyesno(
+            "Actualizar estado",
+            (
+                "¿Desea cambiar el estado "
+                f"de la señal a {estado_nuevo}?"
+            )
+        )
+
+        if not confirmar:
+            return
+
+        self.boton_actualizar_estado.config(
+            state="disabled"
+        )
+
+        self.label_estado.config(
+            text="Actualizando estado..."
+        )
+
+        try:
+
+            senal_actualizada = (
+                self.cliente_api
+                .actualizar_estado_senal(
+                    senal_id=senal_id,
+                    estado=estado_nuevo,
+                    comentario=comentario
+                )
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            self.boton_actualizar_estado.config(
+                state="normal"
+            )
+
+            return
+
+        self.senales_inventario[
+            senal_id
+        ] = senal_actualizada
+
+        valores = list(
+            self.tabla_inventario.item(
+                senal_id,
+                "values"
+            )
+        )
+
+        valores[3] = (
+            senal_actualizada[
+                "estado_actual"
+            ]
+        )
+
+        fecha = (
+            senal_actualizada[
+                "fecha_actualizacion"
+            ]
+            .replace("T", " ")
+            [:19]
+        )
+
+        valores[4] = fecha
+
+        self.tabla_inventario.item(
+            senal_id,
+            values=valores
+        )
+
+        self.label_detalle_senal.config(
+            text=(
+                f"Clase: "
+                f"{senal_actualizada['clase_nombre']}\n\n"
+
+                f"Latitud: "
+                f"{senal_actualizada['latitud']:.6f}\n\n"
+
+                f"Longitud: "
+                f"{senal_actualizada['longitud']:.6f}\n\n"
+
+                f"Estado: "
+                f"{senal_actualizada['estado_actual']}"
+            )
+        )
+
+        self._cargar_historial_senal(
+            senal_id
+        )
+
+        self.boton_actualizar_estado.config(
+            state="normal"
+        )
+
+        self.label_estado.config(
+            text=(
+                "Estado actualizado a "
+                f"{estado_nuevo}."
             )
         )

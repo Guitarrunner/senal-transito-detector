@@ -250,3 +250,30 @@ class SenalRespuesta(BaseModel):
 
     fecha_creacion: datetime
     fecha_actualizacion: datetime
+
+class EstadoSenalActualizar(BaseModel):
+
+    estado: Literal[
+        "BUENO",
+        "REGULAR",
+        "MALO"
+    ]
+
+    comentario: str | None = Field(
+        default=None,
+        max_length=500
+    )
+
+class HistorialEstadoRespuesta(BaseModel):
+    id: uuid.UUID
+    senal_id: uuid.UUID
+
+    usuario_id: uuid.UUID
+    nombre_usuario: str
+
+    estado_anterior: str | None
+    estado_nuevo: str
+
+    comentario: str | None
+
+    fecha_cambio: datetime

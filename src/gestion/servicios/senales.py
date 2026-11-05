@@ -1,4 +1,5 @@
 import math
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,7 +7,9 @@ from sqlalchemy.orm import Session
 from src.gestion.modelos import (
     ClaseSenalBD,
     DeteccionBD,
-    SenalBD
+    HistorialEstadoBD,
+    SenalBD,
+    UsuarioBD
 )
 
 
@@ -150,6 +153,118 @@ def listar_senales(
         )
         .order_by(
             SenalBD.fecha_actualizacion.desc()
+        )
+    )
+
+    return sesion.execute(
+        consulta
+    ).all()
+
+def actualizar_estado_senal(
+    sesion: Session,
+    senal_id: uuid.UUID,
+    usuario_id: uuid.UUID,
+    estado_nuevo: str,
+    comentario: str | None = None
+):
+
+    senal = sesion.get(
+        SenalBD,
+        senal_id
+    )
+
+    if senal is None:
+        raise LookupError(
+            "Señal no encontrada."
+        )
+
+    estado_anterior = (
+        senal.estado_actual
+    )
+
+    if estado_anterior == estado_nuevo:
+        raise ValueError(
+            (
+                "La señal ya posee "
+                f"el estado {estado_nuevo}."
+            )
+        )
+
+    historial = HistorialEstadoBD(
+        senal_id=senal.id,
+        usuario_id=usuario_id,
+
+        estado_anterior=(
+            estado_anterior
+        ),
+
+        estado_nuevo=(
+            estado_nuevo
+        ),
+
+        comentario=comentario
+    )
+
+    senal.estado_actual = (
+        estado_nuevo
+    )
+
+    try:
+
+        sesion.add(
+            historial
+        )
+
+        sesion.commit()
+
+        sesion.refresh(
+            senal
+        )
+
+        sesion.refresh(
+            historial
+        )
+
+    except Exception:
+
+        sesion.rollback()
+        raise
+
+    return senal, historial
+
+def listar_historial_senal(
+    sesion: Session,
+    senal_id: uuid.UUID
+):
+
+    senal = sesion.get(
+        SenalBD,
+        senal_id
+    )
+
+    if senal is None:
+        raise LookupError(
+            "Señal no encontrada."
+        )
+
+    consulta = (
+        select(
+            HistorialEstadoBD,
+            UsuarioBD
+        )
+        .join(
+            UsuarioBD,
+            HistorialEstadoBD.usuario_id
+            == UsuarioBD.id
+        )
+        .where(
+            HistorialEstadoBD.senal_id
+            == senal_id
+        )
+        .order_by(
+            HistorialEstadoBD
+            .fecha_cambio
+            .desc()
         )
     )
 

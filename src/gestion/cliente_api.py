@@ -613,5 +613,36 @@ class ClienteGestion:
 
         return respuesta.json()
 
+    def actualizar_estado_senal(
+        self,
+        senal_id: str,
+        estado: str,
+        comentario: str | None = None
+    ):
+
+        respuesta = self._request(
+            "PATCH",
+            f"/senales/{senal_id}/estado",
+            json={
+                "estado": estado,
+                "comentario": comentario
+            }
+        )
+
+        return respuesta.json()
+
+
+    def obtener_historial_senal(
+        self,
+        senal_id: str
+    ):
+
+        respuesta = self._request(
+            "GET",
+            f"/senales/{senal_id}/historial"
+        )
+
+        return respuesta.json()
+
 class SesionExpiradaError(RuntimeError):
     pass
