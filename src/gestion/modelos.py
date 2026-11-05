@@ -154,6 +154,21 @@ class DeteccionBD(Base):
         nullable=True
     )
 
+    precision_ubicacion_m: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True
+    )
+
+    fecha_ubicacion: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    fuente_ubicacion: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True
+    )
+
     bbox_x1: Mapped[int] = mapped_column(
         Integer,
         nullable=False

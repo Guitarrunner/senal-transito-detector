@@ -24,7 +24,7 @@ from src.domain.usuario import Usuario
 from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.processing.procesador_camara import ProcesadorCamara
 from src.detection.rastreador_temporal import RastreadorTemporal
-from src.locacion.proveedor_gps_fijo import ProveedorGPSFijo
+from src.locacion.proveedor_ubicacion_macos import ProveedorUbicacionMacOS
 from src.gestion.cliente_api import ErrorAPI
 from src.processing.anonimizador_evidencia import AnonimizadorEvidencia
 class InterfazVisualizacion:
@@ -106,7 +106,7 @@ class InterfazVisualizacion:
 
         self.procesador_camara = ProcesadorCamara()
 
-        self.proveedor_gps = ProveedorGPSFijo()
+        self.proveedor_gps = ProveedorUbicacionMacOS()
 
         self.tiempo_frame_anterior = None
         self.fps_actual = 0.0
@@ -141,6 +141,13 @@ class InterfazVisualizacion:
         self.inicializar_exportacion_limpia()
 
         self._crear_componentes()
+
+        try:
+            self.proveedor_gps.iniciar()
+        except (OSError, RuntimeError) as error:
+            self.label_estado.config(
+                text=f"Ubicación no disponible: {error}"
+            )
 
         self.verificacion_guardados_programada = (
             self.ventana.after(
@@ -1131,7 +1138,9 @@ class InterfazVisualizacion:
                 f"Modelo: "
                 f"{self.modelo_activo_version}\n"
                 f"Resolución: "
-                f"{self.resolucion_camara}"
+                f"{self.resolucion_camara}\n"
+                f"GPS: "
+                f"{self.proveedor_gps.estado}\n"
             )
         )
 
@@ -1246,7 +1255,9 @@ class InterfazVisualizacion:
                     f"En frame: "
                     f"{len(detecciones)}\n"
                     f"Guardadas: "
-                    f"{self.detecciones_guardadas_sesion}"
+                    f"{self.detecciones_guardadas_sesion}\n"
+                    f"GPS: "
+                    f"{self.proveedor_gps.estado}\n"
                 )
             )
 
@@ -1453,6 +1464,20 @@ class InterfazVisualizacion:
             "placas cubiertas."
         )
 
+        datos.update({
+            "precision_ubicacion_m": (
+                candidato.mejor_precision_ubicacion_m
+            ),
+            "fecha_ubicacion": (
+                candidato.mejor_fecha_ubicacion.isoformat()
+                if candidato.mejor_fecha_ubicacion is not None
+                else None
+            ),
+            "fuente_ubicacion": (
+                candidato.mejor_fuente_ubicacion
+            )
+        })
+
         return self.cola_local.encolar(
             usuario_id=self.usuario_autenticado.id,
             datos=datos,
@@ -1652,6 +1677,7 @@ class InterfazVisualizacion:
         )
 
     def _cerrar_guardado_async(self):
+        self.proveedor_gps.cerrar()
 
         if self.guardado_cerrado:
             return

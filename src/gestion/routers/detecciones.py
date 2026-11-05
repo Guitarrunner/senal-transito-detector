@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import (
     APIRouter,
@@ -78,6 +79,16 @@ async def registrar_deteccion(
         obtener_sesion
     ),
 
+    precision_ubicacion_m: float | None = Form(
+        None,
+        ge=0
+    ),
+    fecha_ubicacion: datetime | None = Form(None),
+    fuente_ubicacion: str | None = Form(
+        None,
+        max_length=50
+    ),
+
     usuario: UsuarioBD = Depends(
         requerir_roles(
             RolUsuario.CAMPO,
@@ -123,7 +134,9 @@ async def registrar_deteccion(
 
             id_local= id_local,
 
-            anonimizada=anonimizada
+            anonimizada=anonimizada,
+            fecha_ubicacion=fecha_ubicacion,
+            fuente_ubicacion=fuente_ubicacion,
         )
 
     except ValueError as error:
@@ -180,7 +193,11 @@ async def registrar_deteccion(
 
         version_modelo_id=(
             deteccion.version_modelo_id
-        )
+        ),
+
+        precision_ubicacion_m=deteccion.precision_ubicacion_m,
+        fecha_ubicacion=deteccion.fecha_ubicacion,
+        fuente_ubicacion=deteccion.fuente_ubicacion,
     )
 
 @router.get(
@@ -271,7 +288,11 @@ def obtener_detecciones(
 
                 version_modelo_id=(
                     deteccion.version_modelo_id
-                )
+                ),
+
+                precision_ubicacion_m=deteccion.precision_ubicacion_m,
+                fecha_ubicacion=deteccion.fecha_ubicacion,
+                fuente_ubicacion=deteccion.fuente_ubicacion,
             )
         )
 

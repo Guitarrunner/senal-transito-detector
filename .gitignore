@@ -43,6 +43,8 @@ models/*.pt
 
 /modelos/
 
+tools/ubicacion/*.app/
+
 *.pt
 *.onnx
 .DS_Store

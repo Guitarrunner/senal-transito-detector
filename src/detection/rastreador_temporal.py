@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import time
-
+from datetime import datetime
 import numpy as np
 
 
@@ -19,7 +19,10 @@ class CandidatoTemporal:
 
     mejor_latitud: float | None = None
     mejor_longitud: float | None = None
-    
+    mejor_precision_ubicacion_m: float | None = None
+    mejor_fecha_ubicacion: datetime | None = None
+    mejor_fuente_ubicacion: str | None = None
+        
     confirmado: bool = False
 
 
@@ -117,6 +120,8 @@ class RastreadorTemporal:
                     )
                 )
 
+                self._asociar_ubicacion(candidato, ubicacion)
+
                 self.candidatos.append(
                     candidato
                 )
@@ -149,6 +154,8 @@ class RastreadorTemporal:
                         frame.copy()
                     )
 
+                    self._asociar_ubicacion(candidato, ubicacion)
+                    
                     candidato.mejor_latitud = (
                         ubicacion.latitud
                         if ubicacion is not None
@@ -360,3 +367,27 @@ class RastreadorTemporal:
         ) ** 0.5
 
         return distancia
+
+    def _asociar_ubicacion(self, candidato, ubicacion):
+        candidato.mejor_latitud = (
+            ubicacion.latitud if ubicacion is not None else None
+        )
+
+        candidato.mejor_longitud = (
+            ubicacion.longitud if ubicacion is not None else None
+        )
+
+        candidato.mejor_precision_ubicacion_m = (
+            ubicacion.precision_m
+            if ubicacion is not None else None
+        )
+
+        candidato.mejor_fecha_ubicacion = (
+            ubicacion.fecha_hora
+            if ubicacion is not None else None
+        )
+
+        candidato.mejor_fuente_ubicacion = (
+            ubicacion.fuente
+            if ubicacion is not None else None
+        )

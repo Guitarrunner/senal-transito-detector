@@ -217,6 +217,10 @@ class DeteccionRespuesta(BaseModel):
 
     version_modelo_id: uuid.UUID
 
+    precision_ubicacion_m: float | None = None
+    fecha_ubicacion: datetime | None = None
+    fuente_ubicacion: str | None = None
+
 class RevisionDeteccionCrear(BaseModel):
     resultado: EstadoRevision
 

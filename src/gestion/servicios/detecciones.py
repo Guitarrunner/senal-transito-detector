@@ -2,6 +2,7 @@ import os
 import uuid
 
 from pathlib import Path
+from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
@@ -55,6 +56,9 @@ def crear_deteccion(
     longitud_captura: float | None = None,
     distancia_estimada: float | None = None,  
     anonimizada: bool = False,
+    precision_ubicacion_m: float | None = None,
+    fecha_ubicacion: datetime | None = None,
+    fuente_ubicacion: str | None = None,
 ):
 
     identificador = (
@@ -170,7 +174,10 @@ def crear_deteccion(
     
             version_modelo_id=(
                 version_modelo_id
-            )
+            ),
+            precision_ubicacion_m=precision_ubicacion_m,
+            fecha_ubicacion=fecha_ubicacion,
+            fuente_ubicacion=fuente_ubicacion,
         )
 
         sesion.add(
