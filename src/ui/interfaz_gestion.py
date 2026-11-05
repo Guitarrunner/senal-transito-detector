@@ -963,6 +963,7 @@ class InterfazGestion:
 
         canvas_detalle = tk.Canvas(
             contenedor_detalle,
+            width=1,
             highlightthickness=0
         )
 
@@ -1002,7 +1003,7 @@ class InterfazGestion:
 
         def ajustar_ancho(event):
             canvas_detalle.itemconfigure(
-                canvas_detalle,
+                ventana_detalle,
                 width=event.width
             )
 
@@ -1011,7 +1012,7 @@ class InterfazGestion:
             actualizar_scroll
         )
 
-        frame_detalle.bind(
+        canvas_detalle.bind(
             "<Configure>",
             ajustar_ancho
         )
@@ -1057,24 +1058,24 @@ class InterfazGestion:
 
         tabla.column(
             "clase",
-            width=180
+            width=80
         )
 
         tabla.column(
             "latitud",
-            width=120,
+            width=80,
             anchor="center"
         )
 
         tabla.column(
             "longitud",
-            width=120,
+            width=80,
             anchor="center"
         )
 
         tabla.column(
             "estado",
-            width=120,
+            width=80,
             anchor="center"
         )
 
