@@ -29,6 +29,7 @@ class InterfazVisualizacion:
         self.cliente_api = cliente_api
         self.sesion_expirada = False
         self.verificacion_sesion_programada = None
+        self.sesion_cerrada = False
 
         clases = (
             self.cliente_api
@@ -288,6 +289,18 @@ class InterfazVisualizacion:
 
         self.boton_exportar_dataset.pack(
             pady=5
+        )
+
+        boton_cerrar_sesion = tk.Button(
+            sidebar,
+            text="Cerrar sesión",
+            command=self.cerrar_sesion,
+            height=2,
+            width=25
+        )
+
+        boton_cerrar_sesion.pack(
+            pady=10
         )
 
         # ===== ESTADO =====
@@ -1332,6 +1345,23 @@ class InterfazVisualizacion:
 
         self._cerrar_guardado_async()
         self.ventana.destroy()
+
+    def cerrar_sesion(self):
+
+        confirmar = messagebox.askyesno(
+            "Cerrar sesión",
+            "¿Desea cerrar la sesión actual?"
+        )
+
+        if not confirmar:
+            return
+
+        self.sesion_cerrada = True
+
+        self.cliente_api.access_token = None
+        self.cliente_api.sesion.close()
+
+        self._cerrar_ventana()
 
     def _guardar_deteccion_camara(
         self,
