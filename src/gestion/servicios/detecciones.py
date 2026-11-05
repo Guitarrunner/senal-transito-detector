@@ -4,12 +4,16 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from src.domain.estado_revision import EstadoRevision
 
 from src.gestion.modelos import (
     ClaseSenalBD,
     DeteccionBD,
     EvidenciaBD,
     VersionModeloBD,
+    RevisionDeteccionBD
 )
 
 
@@ -137,3 +141,143 @@ def crear_deteccion(
         raise
 
     return deteccion, clase
+
+def listar_detecciones(
+    sesion: Session,
+    estado: EstadoRevision | None = None
+):
+
+    consulta = (
+        select(
+            DeteccionBD,
+            ClaseSenalBD
+        )
+        .join(
+            ClaseSenalBD,
+            DeteccionBD.clase_senal_id
+            == ClaseSenalBD.id
+        )
+    )
+
+    if estado is not None:
+        consulta = consulta.where(
+            DeteccionBD.estado_revision
+            == estado
+        )
+
+    consulta = consulta.order_by(
+        DeteccionBD.fecha_hora.desc()
+    )
+
+    resultado = sesion.execute(
+        consulta
+    ).all()
+
+    return resultado
+
+def obtener_evidencia_deteccion(
+    sesion: Session,
+    deteccion_id: uuid.UUID
+):
+
+    deteccion = sesion.get(
+        DeteccionBD,
+        deteccion_id
+    )
+
+    if deteccion is None:
+        raise ValueError(
+            "Detección no encontrada."
+        )
+
+    if deteccion.evidencia_id is None:
+        raise ValueError(
+            "La detección no tiene evidencia."
+        )
+
+    evidencia = sesion.get(
+        EvidenciaBD,
+        deteccion.evidencia_id
+    )
+
+    if evidencia is None:
+        raise ValueError(
+            "Evidencia no encontrada."
+        )
+
+    ruta = Path(
+        evidencia.ruta_archivo
+    )
+
+    if not ruta.exists():
+        raise ValueError(
+            "El archivo de evidencia no existe."
+        )
+
+    return evidencia
+
+def revisar_deteccion(
+    sesion: Session,
+    deteccion_id: uuid.UUID,
+    usuario_id: uuid.UUID,
+    resultado: EstadoRevision,
+    comentario: str | None = None
+):
+
+    deteccion = sesion.get(
+        DeteccionBD,
+        deteccion_id
+    )
+
+    if deteccion is None:
+        raise LookupError(
+            "Detección no encontrada."
+        )
+
+    if resultado == EstadoRevision.PENDING:
+        raise ValueError(
+            (
+                "El resultado de una revisión "
+                "no puede ser PENDING."
+            )
+        )
+
+    if (
+        deteccion.estado_revision
+        != EstadoRevision.PENDING
+    ):
+        raise ValueError(
+            "La detección ya fue revisada."
+        )
+
+    revision = RevisionDeteccionBD(
+        deteccion_id=deteccion.id,
+        usuario_id=usuario_id,
+        resultado=resultado,
+        comentario=comentario
+    )
+
+    deteccion.estado_revision = resultado
+
+    try:
+
+        sesion.add(
+            revision
+        )
+
+        sesion.commit()
+
+        sesion.refresh(
+            revision
+        )
+
+        sesion.refresh(
+            deteccion
+        )
+
+    except Exception:
+
+        sesion.rollback()
+        raise
+
+    return deteccion, revision

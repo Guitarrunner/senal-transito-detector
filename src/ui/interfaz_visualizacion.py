@@ -1290,6 +1290,12 @@ class InterfazVisualizacion:
 
         self.procesador_camara.cerrar()
 
+        self.canvas.configure(
+            image=""
+        )
+
+        self.imagen_tk = None
+
         self.boton_iniciar_camara.config(
             state=tk.NORMAL
         )

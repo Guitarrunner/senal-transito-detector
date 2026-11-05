@@ -1,5 +1,13 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog, ttk
+
+from io import BytesIO
+
+from PIL import (
+    Image,
+    ImageTk,
+    ImageDraw
+)
 
 from src.domain.usuario import Usuario
 from src.domain.rol_usuario import RolUsuario
@@ -22,6 +30,9 @@ class InterfazGestion:
         self.sesion_cerrada = False
 
         self.contenido_actual = None
+        self.detecciones_pendientes = {}
+        self.imagen_evidencia_tk = None
+        self.deteccion_seleccionada_id = None
 
         self.ventana = tk.Toplevel(parent)
 
@@ -334,21 +345,470 @@ class InterfazGestion:
 
     def mostrar_detecciones(self):
 
+        self._limpiar_contenido_actual()
+
         self.titulo_contenido.config(
             text="Detecciones pendientes"
         )
 
-        self.texto_contenido.config(
+        self.texto_contenido.pack_forget()
+
+        self.label_estado.config(
+            text="Consultando detecciones..."
+        )
+
+        try:
+            detecciones = (
+                self.cliente_api
+                .listar_detecciones(
+                    estado="PENDING"
+                )
+            )
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+
+        self.detecciones_pendientes = {
+            str(deteccion["id"]): deteccion
+            for deteccion in detecciones
+        }
+
+        self.contenido_actual = tk.Frame(
+            self.frame_contenido
+        )
+
+        self.contenido_actual.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=10
+        )
+
+        if not detecciones:
+
+            mensaje = tk.Label(
+                self.contenido_actual,
+                text=(
+                    "No hay detecciones "
+                    "pendientes de revisión."
+                ),
+                font=("Arial", 12)
+            )
+
+            mensaje.pack(
+                pady=40
+            )
+
+            self.label_estado.config(
+                text="Sin detecciones pendientes."
+            )
+
+            return
+
+        frame_lista = tk.Frame(
+            self.contenido_actual
+        )
+
+        frame_lista.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(0, 10)
+        )
+
+
+        frame_detalle = tk.Frame(
+            self.contenido_actual,
+            bd=1,
+            relief="solid"
+        )
+
+        frame_detalle.pack(
+            side="right",
+            fill="both",
+            expand=True,
+            padx=(10, 0)
+        )
+
+        columnas = (
+            "clase",
+            "confianza",
+            "fecha",
+            "estado"
+        )
+
+        tabla = ttk.Treeview(
+            frame_lista,
+            columns=columnas,
+            show="headings",
+            height=20
+        )
+
+        tabla.heading(
+            "clase",
+            text="Clase"
+        )
+
+        tabla.heading(
+            "confianza",
+            text="Confianza"
+        )
+
+        tabla.heading(
+            "fecha",
+            text="Fecha"
+        )
+
+        tabla.heading(
+            "estado",
+            text="Estado"
+        )
+
+        tabla.column(
+            "clase",
+            width=180
+        )
+
+        tabla.column(
+            "confianza",
+            width=120,
+            anchor="center"
+        )
+
+        tabla.column(
+            "fecha",
+            width=200,
+            anchor="center"
+        )
+
+        tabla.column(
+            "estado",
+            width=120,
+            anchor="center"
+        )
+
+        scrollbar = ttk.Scrollbar(
+            frame_lista,
+            orient="vertical",
+            command=tabla.yview
+        )
+
+        titulo_detalle = tk.Label(
+            frame_detalle,
+            text="Detalle de detección",
+            font=("Arial", 16, "bold")
+        )
+
+        titulo_detalle.pack(
+            pady=(15, 5)
+        )
+
+
+        self.label_evidencia = tk.Label(
+            frame_detalle,
             text=(
-                "Aquí se mostrarán las detecciones "
-                "pendientes de revisión."
+                "Seleccione una detección "
+                "para ver su evidencia."
             )
         )
 
-        self.label_estado.config(
-            text="Consultando detecciones."
+        self.label_evidencia.pack(
+            pady=15
         )
 
+
+        self.label_detalle_deteccion = tk.Label(
+            frame_detalle,
+            text="",
+            font=("Arial", 11),
+            justify="left",
+            anchor="w"
+        )
+
+        self.label_detalle_deteccion.pack(
+            fill="x",
+            padx=25,
+            pady=10
+        )
+
+        frame_botones = tk.Frame(
+            frame_detalle
+        )
+
+        frame_botones.pack(
+            pady=20
+        )
+
+
+        self.boton_aprobar = tk.Button(
+            frame_botones,
+            text="Aprobar",
+            command=self._aprobar_deteccion,
+            width=15,
+            height=2,
+            state="disabled"
+        )
+
+        self.boton_aprobar.pack(
+            side="left",
+            padx=10
+        )
+
+
+        self.boton_rechazar = tk.Button(
+            frame_botones,
+            text="Rechazar",
+            command=self._rechazar_deteccion,
+            width=15,
+            height=2,
+            state="disabled"
+        )
+
+        self.boton_rechazar.pack(
+            side="left",
+            padx=10
+        )
+
+        tabla.configure(
+            yscrollcommand=scrollbar.set
+        )
+
+        tabla.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
+        for deteccion in detecciones:
+
+            fecha = (
+                deteccion["fecha_hora"]
+                .replace("T", " ")
+                [:19]
+            )
+
+            confianza = (
+                f"{deteccion['confianza'] * 100:.1f}%"
+            )
+
+            tabla.insert(
+                "",
+                tk.END,
+                iid=str(
+                    deteccion["id"]
+                ),
+                values=(
+                    deteccion[
+                        "clase_nombre"
+                    ],
+                    confianza,
+                    fecha,
+                    deteccion[
+                        "estado_revision"
+                    ]
+                )
+            )
+
+        self.tabla_detecciones = tabla
+
+        self.tabla_detecciones.bind(
+            "<<TreeviewSelect>>",
+            self._mostrar_detalle_deteccion
+        )
+
+        self.label_estado.config(
+            text=(
+                f"Detecciones pendientes: "
+                f"{len(detecciones)}"
+            )
+        )
+
+    def _mostrar_detalle_deteccion(
+        self,
+        event=None
+    ):
+
+        seleccion = (
+            self.tabla_detecciones
+            .selection()
+        )
+
+        if not seleccion:
+            return
+
+        deteccion_id = seleccion[0]
+
+        self.deteccion_seleccionada_id = (
+            deteccion_id
+        )
+
+        deteccion = (
+            self.detecciones_pendientes
+            .get(
+                deteccion_id
+            )
+        )
+
+        if deteccion is None:
+            return
+
+        self.label_estado.config(
+            text="Cargando evidencia..."
+        )
+
+        try:
+
+            evidencia_bytes = (
+                self.cliente_api
+                .obtener_evidencia_deteccion(
+                    deteccion_id
+                )
+            )
+
+            imagen = Image.open(
+                BytesIO(
+                    evidencia_bytes
+                )
+            ).convert("RGB")
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            return
+            
+        dibujo = ImageDraw.Draw(
+            imagen
+        )
+
+        bbox = (
+            deteccion["bbox_x1"],
+            deteccion["bbox_y1"],
+            deteccion["bbox_x2"],
+            deteccion["bbox_y2"]
+        )
+
+        grosor = max(
+            2,
+            imagen.width // 300
+        )
+
+        dibujo.rectangle(
+            bbox,
+            outline="red",
+            width=grosor
+        )
+
+        imagen.thumbnail(
+            (500, 430),
+            Image.Resampling.LANCZOS
+        )
+
+        self.imagen_evidencia_tk = (
+            ImageTk.PhotoImage(
+                imagen
+            )
+        )
+
+        self.label_evidencia.config(
+            image=self.imagen_evidencia_tk,
+            text=""
+        )
+
+        self.label_evidencia.image = (
+            self.imagen_evidencia_tk
+        )
+
+        fecha = (
+            deteccion["fecha_hora"]
+            .replace("T", " ")
+            [:19]
+        )
+
+        confianza = (
+            deteccion["confianza"]
+            * 100
+        )
+
+        latitud = (
+            deteccion[
+                "latitud_captura"
+            ]
+        )
+
+        longitud = (
+            deteccion[
+                "longitud_captura"
+            ]
+        )
+
+        if (
+            latitud is not None
+            and longitud is not None
+        ):
+
+            ubicacion = (
+                f"{latitud:.6f}, "
+                f"{longitud:.6f}"
+            )
+
+        else:
+
+            ubicacion = "Sin GPS"
+
+        texto = (
+            f"Clase: "
+            f"{deteccion['clase_nombre']}\n\n"
+
+            f"Confianza: "
+            f"{confianza:.1f}%\n\n"
+
+            f"Fecha: "
+            f"{fecha}\n\n"
+
+            f"Estado: "
+            f"{deteccion['estado_revision']}\n\n"
+
+            f"Ubicación: "
+            f"{ubicacion}\n\n"
+
+            f"Bounding box: "
+            f"({deteccion['bbox_x1']}, "
+            f"{deteccion['bbox_y1']}) → "
+            f"({deteccion['bbox_x2']}, "
+            f"{deteccion['bbox_y2']})"
+        )
+
+        self.label_detalle_deteccion.config(
+            text=texto
+        )
+
+        self.label_estado.config(
+            text=(
+                "Detección seleccionada: "
+                f"{deteccion['clase_nombre']}"
+            )
+        )
+
+        self.boton_aprobar.config(
+            state="normal"
+        )
+
+        self.boton_rechazar.config(
+            state="normal"
+        )
 
     def mostrar_inventario(self):
 
@@ -551,3 +1011,126 @@ class InterfazGestion:
                 pass
 
         self.ventana.destroy()
+
+    def _aprobar_deteccion(self):
+
+        deteccion_id = (
+            self.deteccion_seleccionada_id
+        )
+
+        if deteccion_id is None:
+            return
+
+        confirmar = messagebox.askyesno(
+            "Aprobar detección",
+            (
+                "¿Confirma que desea aprobar "
+                "esta detección?"
+            )
+        )
+
+        if not confirmar:
+            return
+
+        self._revisar_deteccion(
+            resultado="APPROVED"
+        )
+
+    def _rechazar_deteccion(self):
+
+        deteccion_id = (
+            self.deteccion_seleccionada_id
+        )
+
+        if deteccion_id is None:
+            return
+
+        comentario = simpledialog.askstring(
+            "Rechazar detección",
+            (
+                "Ingrese el motivo del rechazo "
+                "(opcional):"
+            ),
+            parent=self.ventana
+        )
+
+        if comentario is None:
+            return
+
+        comentario = comentario.strip()
+
+        if not comentario:
+            comentario = None
+
+        self._revisar_deteccion(
+            resultado="REJECTED",
+            comentario=comentario
+        )
+
+    def _revisar_deteccion(
+        self,
+        resultado: str,
+        comentario: str | None = None
+    ):
+
+        deteccion_id = (
+            self.deteccion_seleccionada_id
+        )
+
+        if deteccion_id is None:
+            return
+
+        self.boton_aprobar.config(
+            state="disabled"
+        )
+
+        self.boton_rechazar.config(
+            state="disabled"
+        )
+
+        self.label_estado.config(
+            text="Guardando revisión..."
+        )
+
+        try:
+
+            self.cliente_api.revisar_deteccion(
+                deteccion_id=deteccion_id,
+                resultado=resultado,
+                comentario=comentario
+            )
+
+        except SesionExpiradaError:
+            return
+
+        except RuntimeError as error:
+
+            self.label_estado.config(
+                text=str(error)
+            )
+
+            self.boton_aprobar.config(
+                state="normal"
+            )
+
+            self.boton_rechazar.config(
+                state="normal"
+            )
+
+            return
+
+        self.deteccion_seleccionada_id = None
+
+        if resultado == "APPROVED":
+
+            self.label_estado.config(
+                text="Detección aprobada."
+            )
+
+        else:
+
+            self.label_estado.config(
+                text="Detección rechazada."
+            )
+
+        self.mostrar_detecciones()

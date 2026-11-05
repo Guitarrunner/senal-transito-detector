@@ -541,5 +541,60 @@ class ClienteGestion:
 
         return respuesta.json()
 
+    def listar_detecciones(
+        self,
+        estado: str | None = None
+    ):
+
+        parametros = {}
+
+        if estado is not None:
+            parametros["estado"] = estado
+
+        respuesta = self._request(
+            "GET",
+            "/detecciones",
+            params=parametros
+        )
+
+        return respuesta.json()
+
+    def obtener_evidencia_deteccion(
+        self,
+        deteccion_id: str
+    ) -> bytes:
+
+        respuesta = self._request(
+            "GET",
+            (
+                f"/detecciones/"
+                f"{deteccion_id}/evidencia"
+            ),
+            timeout=20
+        )
+
+        return respuesta.content
+
+    def revisar_deteccion(
+        self,
+        deteccion_id: str,
+        resultado: str,
+        comentario: str | None = None
+    ):
+
+        respuesta = self._request(
+            "POST",
+            (
+                f"/detecciones/"
+                f"{deteccion_id}/revision"
+            ),
+            json={
+                "resultado": resultado,
+                "comentario": comentario
+            }
+        )
+
+        return respuesta.json()
+
 class SesionExpiradaError(RuntimeError):
     pass

@@ -216,3 +216,23 @@ class DeteccionRespuesta(BaseModel):
     estado_revision: EstadoRevision
 
     version_modelo_id: uuid.UUID
+
+class RevisionDeteccionCrear(BaseModel):
+    resultado: EstadoRevision
+
+    comentario: str | None = Field(
+        default=None,
+        max_length=500
+    )
+
+
+class RevisionDeteccionRespuesta(BaseModel):
+    id: uuid.UUID
+
+    deteccion_id: uuid.UUID
+    usuario_id: uuid.UUID
+
+    resultado: EstadoRevision
+    comentario: str | None
+
+    fecha_revision: datetime
