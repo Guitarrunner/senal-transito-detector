@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from tkintermapview import TkinterMapView
 
+from pathlib import Path
 from io import BytesIO
 
 from PIL import (
@@ -1419,11 +1420,23 @@ class InterfazGestion:
 
             return
 
+        raiz = Path(__file__).resolve().parents[2]
+        ruta_mapa = raiz / "data/mapas/costa_rica.sqlite3"
+
+        if not ruta_mapa.is_file():
+            self.label_estado.config(
+                text="No se encontró la base del mapa local."
+            )
+            return
+
         mapa = TkinterMapView(
             self.contenido_actual,
             width=900,
             height=650,
-            corner_radius=0
+            corner_radius=0,
+            database_path=str(ruta_mapa),
+            use_database_only=True,
+            max_zoom=16
         )
 
         mapa.pack(
@@ -1431,22 +1444,13 @@ class InterfazGestion:
             expand=True
         )
 
-        latitud_centro = sum(
-            senal["latitud"]
-            for senal in senales
-        ) / len(senales)
+        mapa.set_position(9.7, -84.2)
+        mapa.set_zoom(7)
 
-        longitud_centro = sum(
-            senal["longitud"]
-            for senal in senales
-        ) / len(senales)
-
-        mapa.set_position(
-            latitud_centro,
-            longitud_centro
-        )
-
-        mapa.set_zoom(16)
+        tk.Label(
+            self.contenido_actual,
+            text="© OpenStreetMap contributors · Datos: Geofabrik"
+        ).pack(fill="x")
 
         for senal in senales:
 

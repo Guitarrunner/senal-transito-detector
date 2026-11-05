@@ -9,6 +9,7 @@ runs/
 data/cola_local.sqlite3*
 data/processed/*
 data/evidence/*
+data/mapas/*
 data/metadata/*
 data/pruebas_anonimizacion/*
 dataset/images/train/*
@@ -20,6 +21,7 @@ dataset/labels/test/*
 
 !data/processed/.gitkeep
 !data/evidence/.gitkeep
+!data/mapas/.gitkeep
 !data/metadata/.gitkeep
 !data/pruebas_anonimizacion/.gitkeep
 !dataset/images/train/.gitkeep
