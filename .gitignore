@@ -10,6 +10,7 @@ data/cola_local.sqlite3*
 data/processed/*
 data/evidence/*
 data/metadata/*
+data/pruebas_anonimizacion/*
 dataset/images/train/*
 dataset/images/val/*
 dataset/images/test/*
@@ -20,6 +21,7 @@ dataset/labels/test/*
 !data/processed/.gitkeep
 !data/evidence/.gitkeep
 !data/metadata/.gitkeep
+!data/pruebas_anonimizacion/.gitkeep
 !dataset/images/train/.gitkeep
 !dataset/images/val/.gitkeep
 !dataset/images/test/.gitkeep

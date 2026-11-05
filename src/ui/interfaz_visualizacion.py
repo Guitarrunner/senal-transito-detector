@@ -26,6 +26,7 @@ from src.processing.procesador_camara import ProcesadorCamara
 from src.detection.rastreador_temporal import RastreadorTemporal
 from src.locacion.proveedor_gps_fijo import ProveedorGPSFijo
 from src.gestion.cliente_api import ErrorAPI
+from src.processing.anonimizador_evidencia import AnonimizadorEvidencia
 class InterfazVisualizacion:
 
     def __init__(self, parent, usuario_autenticado: Usuario, cliente_api: ClienteGestion):
@@ -33,6 +34,7 @@ class InterfazVisualizacion:
         self.usuario_autenticado = usuario_autenticado
         self.cliente_api = cliente_api
         self.cola_local = ColaLocal()
+        self.anonimizador = AnonimizadorEvidencia()
         self.sesion_expirada = False
         self.verificacion_sesion_programada = None
         self.sesion_cerrada = False
@@ -1392,9 +1394,15 @@ class InterfazVisualizacion:
                 "en la base de datos."
             )
 
+        frame_anonimizado, cantidades = (
+            self.anonimizador.procesar(
+                candidato.mejor_frame
+            )
+        )
+
         exito, buffer = cv2.imencode(
             ".jpg",
-            candidato.mejor_frame,
+            frame_anonimizado,
             [cv2.IMWRITE_JPEG_QUALITY, 95]
         )
 
@@ -1434,6 +1442,16 @@ class InterfazVisualizacion:
                 else None
             )
         }
+
+        datos["anonimizada"] = True
+
+        print(
+            "Evidencia procesada:",
+            cantidades["rostros"],
+            "rostros y",
+            cantidades["placas"],
+            "placas cubiertas."
+        )
 
         return self.cola_local.encolar(
             usuario_id=self.usuario_autenticado.id,

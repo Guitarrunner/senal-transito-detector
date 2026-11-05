@@ -54,6 +54,7 @@ def crear_deteccion(
     latitud_captura: float | None = None,
     longitud_captura: float | None = None,
     distancia_estimada: float | None = None,  
+    anonimizada: bool = False,
 ):
 
     identificador = (
@@ -125,7 +126,7 @@ def crear_deteccion(
         ruta_archivo=str(
             ruta_archivo
         ),
-        anonimizada=False
+        anonimizada=anonimizada
     )
 
     identificador = (

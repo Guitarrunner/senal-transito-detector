@@ -479,7 +479,8 @@ class ClienteGestion:
         distancia_estimada=None,
 
         notificar_sesion_expirada: bool = True,
-        id_local: str | None = None
+        id_local: str | None = None,
+        anonimizada: bool = False,
         ):
 
 
@@ -499,6 +500,10 @@ class ClienteGestion:
                 version_modelo_id
             )
         }
+
+        datos["anonimizada"] = (
+            "true" if anonimizada else "false"
+        )
 
         if id_local is not None:
             datos["id_local"] = str(id_local)

@@ -72,6 +72,8 @@ async def registrar_deteccion(
 
     evidencia: UploadFile = File(...),
 
+    anonimizada: bool = Form(False),
+
     sesion: Session = Depends(
         obtener_sesion
     ),
@@ -119,7 +121,9 @@ async def registrar_deteccion(
                 distancia_estimada
             ),
 
-            id_local= id_local
+            id_local= id_local,
+
+            anonimizada=anonimizada
         )
 
     except ValueError as error:
