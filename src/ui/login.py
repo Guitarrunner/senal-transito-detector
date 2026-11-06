@@ -13,7 +13,7 @@ class Login:
         self.ventana = tk.Tk()
         self.ventana.title("Inicio de sesión")
 
-        self.centrar_ventana(850, 620)
+        self.centrar_ventana(550, 320)
 
         self.ventana.bind("<Return>", lambda event: self.validar_login())
 
@@ -170,7 +170,6 @@ class Login:
                 "Acceso denegado",
                 "Usuario o contraseña incorrectos."
             )
-            self.usuario_entry.delete(0, tk.END)
             self.password_entry.delete(0, tk.END)
 
     def ejecutar(self):

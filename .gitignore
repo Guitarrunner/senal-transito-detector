@@ -42,8 +42,11 @@ models/*.pt
 !models/.gitkeep
 
 /modelos/
+modelos/ios/
 
 tools/ubicacion/*.app/
+
+.venv-coreml/
 
 *.pt
 *.onnx

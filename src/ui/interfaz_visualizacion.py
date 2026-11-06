@@ -13,13 +13,10 @@ from datetime import datetime
 
 from concurrent.futures import ThreadPoolExecutor
 
-from src.dataset.exportador_dataset import ExportadorDataset
 from src.processing.procesador_imagen import ProcesadorImagen
 from src.detection.detector_senales import DetectorSenales
 from src.storage.cola_local import ColaLocal
 from src.visualization.visualizador_resultados import VisualizadorResultados
-from src.storage.gestor_almacenamiento import GestorAlmacenamiento
-from src.processing.procesador_video import ProcesadorVideo
 from src.domain.usuario import Usuario
 from src.gestion.cliente_api import (ClienteGestion, SesionExpiradaError)
 from src.processing.procesador_camara import ProcesadorCamara
@@ -97,9 +94,6 @@ class InterfazVisualizacion:
 
         self.procesador = ProcesadorImagen()
 
-        self.procesador_video = ProcesadorVideo()
-        self.imagenes_exportacion_actuales = []
-
         self.frames_video_actual = []
         self.indice_frame_video_actual = 0
         self.modo_video = False
@@ -135,10 +129,6 @@ class InterfazVisualizacion:
         )
 
         self.visualizador = VisualizadorResultados()
-
-        self.almacenamiento = GestorAlmacenamiento()
-
-        self.inicializar_exportacion_limpia()
 
         self._crear_componentes()
 
@@ -223,91 +213,161 @@ class InterfazVisualizacion:
 
         # ===== BOTONES =====
 
-        boton_cargar = tk.Button(
+        self.boton_archivos= tk.Menubutton(
             sidebar,
-            text="Procesar imagen",
-            command=self.procesar_imagen,
+            text="Archivos ▾",
+            height=2,
+            width=25,
+            relief="raised",
+            direction="below"
+        )
+
+        menu_archivos = tk.Menu(
+            self.boton_archivos,
+            tearoff=False
+        )
+
+        menu_archivos.add_command(
+            label="Procesar imagen...",
+            command=self.procesar_imagen
+        )
+
+        menu_archivos.add_command(
+            label="Procesar video...",
+            command=self.procesar_video
+        )
+
+        menu_archivos.add_separator()
+
+        menu_archivos.add_command(
+            label="Limpiar interfaz",
+            command=self.limpiar_interfaz
+        )
+
+        self.boton_archivos.configure(
+            menu=menu_archivos
+        )
+
+        self.boton_archivos.pack(
+            pady=(10, 5)
+        )
+
+        self.boton_camara = tk.Button(
+            sidebar,
+            text="Iniciar cámara",
+            command=self.alternar_camara,
             height=2,
             width=25
         )
 
-        boton_cargar.pack(
+        self.boton_camara.pack(
+            pady=5
+        )
+
+        # ===== ESTADO =====
+
+        panel_info = tk.LabelFrame(
+            sidebar,
+            text="Información",
+            font=("Arial", 12, "bold"),
+            fg="#333333",
+            bg="#f0f0f0"
+        )
+
+        panel_info.pack(
+            fill="both",
+            expand=True,
+            padx=10,
             pady=10
         )
 
-        boton_video = tk.Button(
-            sidebar,
-            text="Procesar video",
-            command=self.procesar_video,
-            height=2,
-            width=25
+        tk.Label(
+            panel_info,
+            text=(
+                f"Usuario: {self.usuario_autenticado.nombre_usuario}\n"
+                f"Modelo: {self.modelo_activo_version}"
+            ),
+            bg="#f0f0f0",
+            fg="#333333",
+            justify="left",
+            anchor="w",
+            wraplength=270
+        ).pack(
+            fill="x",
+            padx=10,
+            pady=(10, 5)
         )
 
-        boton_video.pack(
+        self.label_estado = tk.Label(
+            panel_info,
+            text="Sistema listo.",
+            font=("Arial", 11),
+            fg="#333333",
+            bg="#f0f0f0",
+            justify="left",
+            anchor="w",
+            wraplength=270
+        )
+
+        self.label_estado.pack(
+            fill="x",
+            padx=10,
             pady=5
         )
 
-        self.boton_iniciar_camara = tk.Button(
-            sidebar,
-            text="Iniciar cámara",
-            command=self.iniciar_camara,
-            height=2,
-            width=25
+        tk.Frame(
+            panel_info,
+            height=1,
+            bg="#cccccc"
+        ).pack(
+            fill="x",
+            padx=10,
+            pady=8
         )
 
-        self.boton_iniciar_camara.pack(
-            pady=5
+        contenedor_resultados = tk.Frame(
+            panel_info,
+            bg="#f0f0f0"
         )
 
-        self.boton_detener_camara = tk.Button(
-            sidebar,
-            text="Detener cámara",
-            command=self.detener_camara,
-            height=2,
-            width=25,
-            state=tk.DISABLED
+        contenedor_resultados.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=(0, 10)
         )
 
-        self.boton_detener_camara.pack(
-            pady=5
+        self.texto_resultados = tk.Text(
+            contenedor_resultados,
+            height=10,
+            width=32,
+            wrap="word",
+            state="disabled",
+            relief="flat",
+            fg="#333333",
+            bg="#f0f0f0"
         )
 
-        boton_limpiar = tk.Button(
-            sidebar,
-            text="Limpiar interfaz",
-            command=self.limpiar_interfaz,
-            height=2,
-            width=25
+        scroll_resultados = tk.Scrollbar(
+            contenedor_resultados,
+            command=self.texto_resultados.yview
         )
 
-        boton_limpiar.pack(
-            pady=5
+        self.texto_resultados.configure(
+            yscrollcommand=scroll_resultados.set
         )
 
-        self.boton_agregar_exportacion = tk.Button(
-            sidebar,
-            text="Agregar a exportación",
-            command=self.agregar_imagen_a_exportacion,
-            height=2,
-            width=25,
-            state=tk.DISABLED
+        scroll_resultados.pack(
+            side="right",
+            fill="y"
         )
 
-        self.boton_agregar_exportacion.pack(
-            pady=5
+        self.texto_resultados.pack(
+            side="left",
+            fill="both",
+            expand=True
         )
 
-        self.boton_exportar_dataset = tk.Button(
-            sidebar,
-            text="Exportar dataset YOLO",
-            command=self.exportar_dataset_yolo,
-            height=2,
-            width=25
-        )
-
-        self.boton_exportar_dataset.pack(
-            pady=5
-        )
 
         boton_cerrar_sesion = tk.Button(
             sidebar,
@@ -320,58 +380,7 @@ class InterfazVisualizacion:
         boton_cerrar_sesion.pack(
             pady=10
         )
-
-        # ===== ESTADO =====
-
-        self.label_estado = tk.Label(
-            sidebar,
-            text="Esperando imagen o video...",
-            font=("Arial", 11),
-            bg="#f0f0f0",
-            fg="#333333",
-            wraplength=280,
-            justify="left"
-        )
-
-        self.label_estado.pack(
-            pady=10
-        )
-
-        self.label_estado.config(
-            text=(
-                "Sistema listo.\n"
-                f"Sesión iniciada como: CAMPO\n"
-                f"Modelo activo: "
-                f"{self.modelo_activo_version}"
-            )
-        )
         
-        # ===== RESULTADOS =====
-
-        titulo_resultados = tk.Label(
-            sidebar,
-            text="Detecciones",
-            font=("Arial", 14, "bold"),
-            bg="#f0f0f0",
-            fg="#333333"
-        )
-
-        titulo_resultados.pack(
-            pady=(20, 5)
-        )
-
-        self.texto_resultados = tk.Text(
-            sidebar,
-            height=25,
-            width=35,
-            state="disabled"
-        )
-
-        self.texto_resultados.pack(
-            pady=5,
-            padx=10
-        )
-
         # ===== VISUALIZADOR =====
 
         viewer = tk.Frame(main_frame)
@@ -444,117 +453,66 @@ class InterfazVisualizacion:
         self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     def procesar_imagen(self):
-
-        if self.camara_activa:
-            self.detener_camara()
-
-        self.modo_video = False
-        self.frames_video_actual = []
-        self.indice_frame_video_actual = 0
-
-        self.frame_navegacion_video.pack_forget()
-
         ruta = filedialog.askopenfilename(
             parent=self.ventana,
-            title="Seleccionar imagen",
+            title="Analizar imagen",
+            filetypes=[
+                ("Imágenes", "*.jpg *.jpeg *.png *.heic *.heif"),
+                ("Todos los archivos", "*")
+            ]
         )
 
         if not ruta:
             return
 
+        self.limpiar_interfaz()
+
         try:
-
-            imagen_id = str(uuid.uuid4())
-
             self.label_estado.config(
-                text="Procesando imagen..."
+                text="Analizando imagen..."
             )
+            self.ventana.update_idletasks()
 
-            self.ventana.update()
-
-            resultado = self.procesador.procesar_imagen(
-                ruta=ruta,
-                imagen_id=imagen_id
-            )
-
-            imagen = resultado["imagen"]
-
-            ruta_procesada = resultado[
-                "ruta_procesada"
-            ]
+            frame = self.procesador.cargar_imagen(ruta)
 
             detecciones, etiquetas = (
-                self.detector.detectar(
-                    ruta_imagen=ruta_procesada,
-                    imagen_id=imagen.id
+                self.detector.detectar_frame(
+                    frame,
+                    str(uuid.uuid4())
                 )
             )
 
-            self.imagen_actual = imagen
+            resultado = (
+                self.visualizador.dibujar_detecciones_frame(
+                    frame,
+                    detecciones,
+                    etiquetas
+                )
+            )
+
             self.detecciones_actuales = detecciones
             self.etiquetas_actuales = etiquetas
 
-            if detecciones:
-                self.imagenes_exportacion_actuales = [imagen.id]
-
-                self.boton_agregar_exportacion.config(
-                    state=tk.NORMAL,
-                    text="Agregar a exportación"
-                )
-            else:
-                self.imagenes_exportacion_actuales = []
-
-                self.boton_agregar_exportacion.config(
-                    state=tk.DISABLED,
-                    text="Agregar a exportación"
-                )
-
-            ruta_evidencia = (
-                self.visualizador.dibujar_detecciones(
-                    ruta_imagen=ruta_procesada,
-                    detecciones=detecciones,
-                    etiquetas=etiquetas,
-                    nombre_salida=f"{imagen.id}_evidencia.png"
-                )
-            )
-
-            self.almacenamiento.guardar_imagen(
-                imagen
-            )
-
-            self.almacenamiento.guardar_detecciones(
-                detecciones
-            )
-
-            self.almacenamiento.guardar_etiquetas(
-                etiquetas
-            )
-
-            self.mostrar_imagen(
-                ruta_evidencia
-            )
-
-            self.mostrar_resultados(
-                detecciones
-            )
-
-            timestamp = datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            self._mostrar_frame_camara(resultado)
+            self.mostrar_resultados(detecciones)
 
             self.label_estado.config(
                 text=(
-                    f"Procesamiento completado\n\n"
+                    "Modo: análisis de imagen\n"
                     f"Detecciones: {len(detecciones)}\n"
-                    f"Fecha: {timestamp}"
+                    "Resultados temporales, sin guardar."
                 )
             )
 
         except Exception as error:
+            self.label_estado.config(
+                text="No se pudo analizar la imagen."
+            )
 
             messagebox.showerror(
-                "Error",
-                str(error)
+                "Error de análisis",
+                str(error),
+                parent=self.ventana
             )
 
     def mostrar_resultados(
@@ -625,132 +583,34 @@ class InterfazVisualizacion:
         )
 
     def limpiar_interfaz(self):
-
-        self.canvas.configure(
-            image=""
-        )
-
-        self.texto_resultados.config(
-            state="normal"
-        )
-
-        self.texto_resultados.delete(
-            "1.0",
-            tk.END
-        )
-
-        self.texto_resultados.config(
-            state="disabled"
-        )
-
-        self.label_estado.config(
-            text="Esperando imagen o video..."
-        )
-
-        self.imagen_actual = None
-        self.detecciones_actuales = []
-        self.etiquetas_actuales = []
-
-        self.boton_agregar_exportacion.config(
-            state=tk.DISABLED
-        )
-
-        self.imagenes_exportacion_actuales = []
-
-        self.boton_agregar_exportacion.config(
-            state=tk.DISABLED,
-            text="Agregar a exportación"
-        )
-
-        self.modo_video = False
-        self.frames_video_actual = []
-        self.indice_frame_video_actual = 0
-        self.imagenes_exportacion_actuales = []
-
-        self.frame_navegacion_video.pack_forget()
-
-        self.boton_agregar_exportacion.config(
-            state=tk.DISABLED,
-            text="Agregar a exportación"
-        )
-
-    def agregar_imagen_a_exportacion(self):
-        if not self.imagenes_exportacion_actuales:
-            messagebox.showwarning(
-                "Sin datos para exportar",
-                "No hay imágenes o frames aprobables para agregar a la exportación."
-            )
-            return
-
-        for imagen_id in self.imagenes_exportacion_actuales:
-            self.almacenamiento.marcar_imagen_para_exportacion(
-                imagen_id
-            )
-
-        self.boton_agregar_exportacion.config(
-            state=tk.DISABLED,
-            text="Agregado a exportación"
-        )
-
-        messagebox.showinfo(
-            "Datos agregados",
-            f"Se agregaron {len(self.imagenes_exportacion_actuales)} "
-            "imagen(es) o frame(s) a la cola de exportación."
-        )
-
-    def exportar_dataset_yolo(self):
-        ids_aprobadas = self.almacenamiento.obtener_imagenes_para_exportacion()
-
-        if not ids_aprobadas:
-            messagebox.showwarning(
-                "Sin imágenes para exportar",
-                "No hay imágenes aprobadas en la cola de exportación."
-            )
-            return
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        exportador = ExportadorDataset(
-            self.almacenamiento,
-            export_dir=f"exports/yolo_dataset_{timestamp}"
-        )
-
-        resultado = exportador.exportar(
-            solo_aprobadas=True
-        )
-
-        if resultado["imagenes_exportadas"] == 0:
-            messagebox.showwarning(
-                "Sin imágenes para exportar",
-                "No hay imágenes aprobadas en la cola de exportación."
-            )
-            return
-
-        self.limpiar_interfaz()
-        self.ventana.update_idletasks()
-
-        messagebox.showinfo(
-            "Exportación completada",
-            f"Imágenes exportadas: {resultado['imagenes_exportadas']}\n"
-            f"Etiquetas exportadas: {resultado['etiquetas_exportadas']}\n"
-            f"Ruta: {resultado['ruta_exportacion']}"
-        )
-
-    def inicializar_exportacion_limpia(self):
-        """
-        Limpia únicamente la cola de exportación al iniciar la aplicación.
-        Las exportaciones anteriores se conservan.
-        """
-        self.almacenamiento.limpiar_cola_exportacion()
-
-    def procesar_video(self):
-
         if self.camara_activa:
             self.detener_camara()
 
+        self.canvas.configure(image="")
+        self.imagen_tk = None
+        self.imagen_actual = None
+
+        self.detecciones_actuales = []
+        self.etiquetas_actuales = []
+
+        self.frames_video_actual = []
+        self.indice_frame_video_actual = 0
+        self.modo_video = False
+
+        self.frame_navegacion_video.pack_forget()
+
+        self.texto_resultados.config(state="normal")
+        self.texto_resultados.delete("1.0", tk.END)
+        self.texto_resultados.config(state="disabled")
+
+        self.label_estado.config(
+            text="Sistema listo."
+        )
+
+    def procesar_video(self):
         ruta = filedialog.askopenfilename(
             parent=self.ventana,
-            title="Seleccionar video",
+            title="Analizar video",
             filetypes=[
                 ("Videos", "*.mp4 *.avi *.mov")
             ]
@@ -759,141 +619,129 @@ class InterfazVisualizacion:
         if not ruta:
             return
 
+        self.limpiar_interfaz()
+        captura = None
+
         try:
-            video_id = str(uuid.uuid4())
-
             self.label_estado.config(
-                text="Procesando video..."
+                text="Analizando video..."
             )
-
             self.ventana.update_idletasks()
 
-            resultado_video = self.procesador_video.procesar_video(
-                ruta=ruta,
-                video_id=video_id,
-                intervalo_segundos=1,
-                max_frames=30
-            )
+            captura = cv2.VideoCapture(ruta)
 
-            detecciones_totales = []
-            frames_con_detecciones = 0
-            ruta_evidencia_mostrar = None
-            resumen_frames = []
-            ids_exportables = []
-
-            for frame_info in resultado_video["frames"]:
-                imagen = frame_info["imagen"]
-                ruta_procesada = frame_info["ruta_procesada"]
-
-                self.almacenamiento.guardar_imagen(
-                    imagen
+            if not captura.isOpened():
+                raise ValueError(
+                    "No se pudo abrir el video."
                 )
 
-                detecciones, etiquetas = self.detector.detectar(
-                    ruta_imagen=ruta_procesada,
-                    imagen_id=imagen.id
-                )
+            fps = captura.get(cv2.CAP_PROP_FPS)
 
-                self.almacenamiento.guardar_detecciones(
-                    detecciones
-                )
+            if not (0 < fps < 1000):
+                fps = 30.0
 
-                self.almacenamiento.guardar_etiquetas(
-                    etiquetas
-                )
+            intervalo = max(1, round(fps))
+            indice = 0
+            muestras = []
+            total_detecciones = 0
 
-                ruta_evidencia = self.visualizador.dibujar_detecciones(
-                    ruta_imagen=ruta_procesada,
-                    detecciones=detecciones,
-                    etiquetas=etiquetas,
-                    nombre_salida=f"{imagen.id}_evidencia.png"
-                )
+            # Conservamos el muestreo anterior:
+            # aproximadamente un frame por segundo,
+            # con un máximo de 30 muestras.
+            while len(muestras) < 30:
+                exito, frame = captura.read()
 
-                if detecciones:
-                    frames_con_detecciones += 1
-                    detecciones_totales.extend(detecciones)
-                    ids_exportables.append(imagen.id)
+                if not exito:
+                    break
 
-                    if ruta_evidencia_mostrar is None:
-                        ruta_evidencia_mostrar = ruta_evidencia
-
-                resumen_frames.append(
-                    {
-                        "imagen_id": imagen.id,
-                        "frame": frame_info["frame"],
-                        "segundo": frame_info["segundo"],
-                        "ruta_evidencia": ruta_evidencia,
-                        "detecciones": detecciones,
-                        "etiquetas": etiquetas
-                    }
-                )
-
-                self.label_estado.config(
-                    text=(
-                        f"Procesando video...\n"
-                        f"Frames analizados: {len(resumen_frames)}"
+                if indice % intervalo == 0:
+                    detecciones, etiquetas = (
+                        self.detector.detectar_frame(
+                            frame,
+                            str(uuid.uuid4())
+                        )
                     )
+
+                    resultado = (
+                        self.visualizador.dibujar_detecciones_frame(
+                            frame,
+                            detecciones,
+                            etiquetas
+                        )
+                    )
+
+                    # Guardar solo una vista reducida en RAM.
+                    alto, ancho = resultado.shape[:2]
+                    escala = min(
+                        1.0,
+                        900 / ancho,
+                        650 / alto
+                    )
+
+                    if escala < 1:
+                        resultado = cv2.resize(
+                            resultado,
+                            (
+                                max(1, round(ancho * escala)),
+                                max(1, round(alto * escala))
+                            ),
+                            interpolation=cv2.INTER_AREA
+                        )
+
+                    muestras.append({
+                        "frame": indice,
+                        "segundo": round(indice / fps, 2),
+                        "vista": resultado,
+                        "detecciones": detecciones
+                    })
+
+                    total_detecciones += len(detecciones)
+
+                    self.label_estado.config(
+                        text=(
+                            "Analizando video...\n"
+                            f"Muestras: {len(muestras)}"
+                        )
+                    )
+                    self.ventana.update_idletasks()
+
+                indice += 1
+
+            if not muestras:
+                raise ValueError(
+                    "No se pudieron leer frames del video."
                 )
 
-                self.ventana.update_idletasks()
-
-            if ruta_evidencia_mostrar is None:
-                ruta_evidencia_mostrar = self.visualizador.dibujar_detecciones(
-                    ruta_imagen=resultado_video["frames"][0]["ruta_procesada"],
-                    detecciones=[],
-                    etiquetas=[],
-                    nombre_salida=f"{video_id}_sin_detecciones.png"
-                )
-
-            self.imagen_actual = None
-            self.detecciones_actuales = detecciones_totales
-            self.etiquetas_actuales = []
-            self.imagenes_exportacion_actuales = ids_exportables
-
-            if ids_exportables:
-                self.boton_agregar_exportacion.config(
-                    state=tk.NORMAL,
-                    text="Agregar a exportación"
-                )
-            else:
-                self.boton_agregar_exportacion.config(
-                    state=tk.DISABLED,
-                    text="Agregar a exportación"
-                )
-
-            self.frames_video_actual = resumen_frames
+            self.frames_video_actual = muestras
             self.indice_frame_video_actual = 0
             self.modo_video = True
 
-            self.frame_navegacion_video.pack(
-                pady=5
-            )
-
+            self.frame_navegacion_video.pack(pady=5)
             self.mostrar_frame_video_actual()
 
             self.label_estado.config(
                 text=(
-                    f"Video procesado\n\n"
-                    f"Frames analizados: {resultado_video['frames_analizados']}\n"
-                    f"Frames con detecciones: {frames_con_detecciones}\n"
-                    f"Detecciones totales: {len(detecciones_totales)}"
-                )
-            )
-
-            self.label_estado.config(
-                text=(
-                    f"Video procesado\n\n"
-                    f"Frames analizados: {resultado_video['frames_analizados']}\n"
-                    f"Frames con detecciones: {frames_con_detecciones}\n"
-                    f"Detecciones totales: {len(detecciones_totales)}"
+                    "Modo: análisis de video\n"
+                    f"Muestras analizadas: {len(muestras)}\n"
+                    f"Detecciones en muestras: {total_detecciones}\n"
+                    "Resultados temporales, sin guardar."
                 )
             )
 
         except Exception as error:
-            messagebox.showerror(
-                "Error",
-                str(error)
+            self.label_estado.config(
+                text="No se pudo analizar el video."
             )
+
+            messagebox.showerror(
+                "Error de análisis",
+                str(error),
+                parent=self.ventana
+            )
+
+        finally:
+            if captura is not None:
+                captura.release()
 
     def mostrar_resultados_video(
         self,
@@ -977,53 +825,46 @@ class InterfazVisualizacion:
         if not self.frames_video_actual:
             return
 
-        frame_info = self.frames_video_actual[self.indice_frame_video_actual]
+        frame_info = self.frames_video_actual[
+            self.indice_frame_video_actual
+        ]
 
-        self.mostrar_imagen(
-            frame_info["ruta_evidencia"]
+        self._mostrar_frame_camara(
+            frame_info["vista"]
+        )
+
+        self.detecciones_actuales = (
+            frame_info["detecciones"]
         )
 
         self.mostrar_detecciones_frame_video(
             frame_info
         )
 
-        total_frames = len(self.frames_video_actual)
-        frame_actual = self.indice_frame_video_actual + 1
+        total = len(self.frames_video_actual)
 
         self.label_frame_video.config(
-            text=f"Frame {frame_actual} de {total_frames}"
+            text=(
+                f"Muestra {self.indice_frame_video_actual + 1}"
+                f" de {total}"
+            )
         )
 
         self.boton_frame_anterior.config(
-            state=tk.NORMAL if self.indice_frame_video_actual > 0 else tk.DISABLED
+            state=(
+                tk.NORMAL
+                if self.indice_frame_video_actual > 0
+                else tk.DISABLED
+            )
         )
 
         self.boton_frame_siguiente.config(
             state=(
                 tk.NORMAL
-                if self.indice_frame_video_actual < total_frames - 1
+                if self.indice_frame_video_actual < total - 1
                 else tk.DISABLED
             )
         )
-
-        detecciones = frame_info["detecciones"]
-
-        if detecciones:
-            self.imagenes_exportacion_actuales = [
-                frame_info["imagen_id"]
-            ]
-
-            self.boton_agregar_exportacion.config(
-                state=tk.NORMAL,
-                text="Agregar a exportación"
-            )
-        else:
-            self.imagenes_exportacion_actuales = []
-
-            self.boton_agregar_exportacion.config(
-                state=tk.DISABLED,
-                text="Agregar a exportación"
-            )
 
     def mostrar_detecciones_frame_video(self, frame_info):
         self.texto_resultados.config(
@@ -1102,6 +943,7 @@ class InterfazVisualizacion:
 
             return
 
+        self.boton_archivos.config(state="disabled")
         self.camara_activa = True
 
         self.tiempo_frame_anterior = (
@@ -1124,11 +966,8 @@ class InterfazVisualizacion:
                 "Desconocida"
             )
 
-        self.boton_iniciar_camara.config(
-            state=tk.DISABLED
-        )
-
-        self.boton_detener_camara.config(
+        self.boton_camara.config(
+            text="Detener cámara",
             state=tk.NORMAL
         )
 
@@ -1313,6 +1152,7 @@ class InterfazVisualizacion:
 
     def detener_camara(self):
 
+        self.boton_archivos.config(state="normal")
         self.camara_activa = False
 
         if self.after_camara_id is not None:
@@ -1335,12 +1175,9 @@ class InterfazVisualizacion:
 
         self.imagen_tk = None
 
-        self.boton_iniciar_camara.config(
+        self.boton_camara.config(
+            text="Iniciar cámara",
             state=tk.NORMAL
-        )
-
-        self.boton_detener_camara.config(
-            state=tk.DISABLED
         )
 
         self.label_estado.config(
@@ -1786,3 +1623,9 @@ class InterfazVisualizacion:
             identificador,
             None
         )
+
+    def alternar_camara(self):
+        if self.camara_activa:
+            self.detener_camara()
+        else:
+            self.iniciar_camara()
