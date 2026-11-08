@@ -1,26 +1,15 @@
 import os
 
-import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import select
 
 from src.domain.rol_usuario import RolUsuario
 from src.gestion.base_datos import SessionLocal
 from src.gestion.modelos import ClaseSenalBD, UsuarioBD
+from src.gestion.servicios.autenticacion import generar_hash
 
 
 load_dotenv()
-
-
-def generar_hash(password: str) -> str:
-    password_bytes = password.encode("utf-8")
-
-    password_hash = bcrypt.hashpw(
-        password_bytes,
-        bcrypt.gensalt()
-    )
-
-    return password_hash.decode("utf-8")
 
 
 def crear_usuarios_iniciales(sesion):

@@ -3,7 +3,8 @@ import uuid
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException
+    HTTPException,
+    Response
 )
 
 from sqlalchemy.orm import Session
@@ -34,7 +35,8 @@ from src.gestion.seguridad import (
 from src.gestion.servicios.senales import (
     actualizar_estado_senal,
     listar_historial_senal,
-    listar_senales
+    listar_senales,
+    retirar_senal
 )
 
 
@@ -251,3 +253,18 @@ def obtener_historial_senal(
         for historial, usuario_bd
         in resultados
     ]
+
+@router.delete("/{senal_id}", status_code=204, response_class=Response)
+def eliminar_senal(
+    senal_id: uuid.UUID,
+    sesion: Session = Depends(obtener_sesion),
+    _administrador: UsuarioBD = Depends(
+        requerir_roles(RolUsuario.ADMINISTRADOR)
+    ),
+):
+    try:
+        retirar_senal(sesion, senal_id)
+    except LookupError as error:
+        raise HTTPException(404, str(error)) from error
+
+    return Response(status_code=204)

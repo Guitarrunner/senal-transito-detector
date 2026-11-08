@@ -300,6 +300,13 @@ class SenalBD(Base):
         onupdate=datetime.now
     )
 
+    activa: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
 class HistorialEstadoBD(Base):
     __tablename__ = "historial_estado"
 

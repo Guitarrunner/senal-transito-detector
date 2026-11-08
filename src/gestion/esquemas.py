@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from datetime import datetime
 
 from typing import Literal
@@ -281,3 +281,15 @@ class HistorialEstadoRespuesta(BaseModel):
     comentario: str | None
 
     fecha_cambio: datetime
+
+class UsuarioGestionRespuesta(UsuarioAutenticadoRespuesta):
+    activo: bool
+
+class UsuarioGestionActualizar(BaseModel):
+    rol: RolUsuario | None = None
+    activo: bool | None = None
+
+class UsuarioGestionCrear(BaseModel):
+    nombre_usuario: str
+    password: SecretStr
+    rol: RolUsuario

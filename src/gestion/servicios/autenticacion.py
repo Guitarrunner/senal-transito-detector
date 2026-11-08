@@ -6,6 +6,16 @@ from sqlalchemy.orm import Session
 from src.gestion.modelos import UsuarioBD
 
 
+def generar_hash(password: str) -> str:
+    password_bytes = password.encode("utf-8")
+
+    password_hash = bcrypt.hashpw(
+        password_bytes,
+        bcrypt.gensalt()
+    )
+
+    return password_hash.decode("utf-8")
+
 def autenticar_usuario(
     sesion: Session,
     nombre_usuario: str,

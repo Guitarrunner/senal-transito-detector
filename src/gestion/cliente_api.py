@@ -635,6 +635,9 @@ class ClienteGestion:
 
         return respuesta.json()
 
+    def eliminar_senal(self, senal_id: str):
+        self._request("DELETE", f"/senales/{senal_id}")
+
     def actualizar_estado_senal(
         self,
         senal_id: str,
@@ -665,6 +668,33 @@ class ClienteGestion:
         )
 
         return respuesta.json()
+
+    def listar_usuarios(self):
+        respuesta = self._request("GET", "/usuarios")
+        return respuesta.json()
+
+    def actualizar_usuario(self, usuario_id: str, cambios: dict):
+        respuesta = self._request(
+            "PATCH",
+            f"/usuarios/{usuario_id}",
+            json=cambios,
+        )
+        return respuesta.json()
+
+    def crear_usuario(self, nombre_usuario: str, password: str, rol: str):
+        respuesta = self._request(
+            "POST",
+            "/usuarios",
+            json={
+                "nombre_usuario": nombre_usuario,
+                "password": password,
+                "rol": rol,
+            },
+        )
+        return respuesta.json()
+
+    def eliminar_usuario(self, usuario_id: str):
+        self._request("DELETE", f"/usuarios/{usuario_id}")
 
 class SesionExpiradaError(RuntimeError):
     pass

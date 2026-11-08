@@ -81,8 +81,8 @@ def asociar_deteccion_a_inventario(
             SenalBD
         )
         .where(
-            SenalBD.clase_senal_id
-            == deteccion.clase_senal_id
+            SenalBD.clase_senal_id == deteccion.clase_senal_id,
+            SenalBD.activa.is_(True),
         )
     )
 
@@ -136,6 +136,17 @@ def asociar_deteccion_a_inventario(
 
     return senal
 
+def retirar_senal(sesion: Session, senal_id: uuid.UUID):
+    senal = sesion.get(SenalBD, senal_id, with_for_update=True)
+
+    if senal is None:
+        raise LookupError("Señal no encontrada.")
+
+    if senal.activa:
+        senal.activa = False
+
+    sesion.commit()
+
 
 def listar_senales(
     sesion: Session
@@ -151,6 +162,7 @@ def listar_senales(
             SenalBD.clase_senal_id
             == ClaseSenalBD.id
         )
+        .where(SenalBD.activa.is_(True))
         .order_by(
             SenalBD.fecha_actualizacion.desc()
         )

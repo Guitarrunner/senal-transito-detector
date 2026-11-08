@@ -619,7 +619,7 @@ class InterfazGestion:
             text="Aprobar",
             command=self._aprobar_deteccion,
             width=15,
-            height=6,
+            height=2,
             state="disabled"
         )
 
@@ -1147,6 +1147,17 @@ class InterfazGestion:
         )
         self.boton_actualizar_estado.pack(pady=(0, 10))
 
+        self.boton_eliminar_senal = tk.Button(
+            frame_estado,
+            text="Eliminar del inventario",
+            command=self._eliminar_senal_seleccionada,
+            state="disabled",
+            width=20,
+        )
+
+        if self.usuario_autenticado.rol == RolUsuario.ADMINISTRADOR:
+            self.boton_eliminar_senal.pack(pady=(0, 10))
+
         tk.Label(
             frame_info_tablas,
             text="Detecciones asociadas",
@@ -1444,18 +1455,283 @@ class InterfazGestion:
 
 
     def mostrar_usuarios(self):
-
+        self._limpiar_contenido_actual()
         self._marcar_vista_activa("usuarios")
+        self.titulo_contenido.config(text="Gestión de usuarios")
+        self.texto_contenido.pack_forget()
+        self.label_estado.config(text="Consultando usuarios...")
 
-        self.titulo_contenido.config(
-            text="Gestión de usuarios"
+        try:
+            usuarios = self.cliente_api.listar_usuarios()
+        except SesionExpiradaError:
+            return
+        except RuntimeError as error:
+            self.label_estado.config(text=str(error))
+            self._marcar_vista_activa()
+            return
+
+        self.contenido_actual = ttk.Frame(self.frame_contenido)
+        self.contenido_actual.pack(fill="both", expand=True, padx=20, pady=10)
+
+        frame_tabla = ttk.Frame(self.contenido_actual)
+        frame_tabla.pack(fill="x")
+
+        self.tabla_usuarios = ttk.Treeview(
+            frame_tabla,
+            columns=("usuario", "rol", "estado"),
+            show="headings",
+            selectmode="browse",
+            height=20,
         )
 
-        self.texto_contenido.config(
-            text=(
-                "Aquí se administrarán los usuarios "
-                "del sistema."
+        self.tabla_usuarios.heading("usuario", text="Usuario")
+        self.tabla_usuarios.heading("rol", text="Rol")
+        self.tabla_usuarios.heading("estado", text="Estado")
+
+        self.tabla_usuarios.column("usuario", width=220)
+        self.tabla_usuarios.column("rol", width=150, anchor="center")
+        self.tabla_usuarios.column("estado", width=120, anchor="center")
+
+        controles = ttk.Frame(self.contenido_actual)
+        controles.pack(fill="x", pady=(16, 8), ipady=4)
+
+        ttk.Label(controles, text="Rol:").pack(side="left")
+
+        self.combo_rol_usuario = ttk.Combobox(
+            controles,
+            values=tuple(rol.value for rol in RolUsuario),
+            state="disabled",
+            width=18,
+        )
+        self.combo_rol_usuario.pack(side="left", padx=8)
+
+        self.boton_cambiar_rol = ttk.Button(
+            controles,
+            text="Cambiar rol",
+            command=self._cambiar_rol_usuario,
+            state="disabled",
+        )
+        self.boton_cambiar_rol.pack(side="left", padx=4)
+
+        self.boton_estado_usuario = ttk.Button(
+            controles,
+            text="Activar / Desactivar",
+            command=self._alternar_estado_usuario,
+            state="disabled",
+        )
+        self.boton_estado_usuario.pack(side="left", padx=4)
+
+        self.boton_eliminar_usuario = ttk.Button(
+            controles,
+            text="Eliminar",
+            command=self._eliminar_usuario_seleccionado,
+            state="disabled",
+        )
+        self.boton_eliminar_usuario.pack(side="left", padx=4)
+
+        ttk.Button(
+            controles,
+            text="Agregar usuario",
+            command=self._abrir_formulario_usuario,
+        ).pack(side="right")
+
+        self.tabla_usuarios.bind(
+            "<<TreeviewSelect>>",
+            self._seleccionar_usuario,
+        )
+
+        scroll = ttk.Scrollbar(
+            frame_tabla,
+            orient="vertical",
+            command=self.tabla_usuarios.yview,
+        )
+        self.tabla_usuarios.configure(yscrollcommand=scroll.set)
+
+        scroll.pack(side="right", fill="y")
+        self.tabla_usuarios.pack(side="left", fill="both", expand=True)
+
+        for usuario in usuarios:
+            self.tabla_usuarios.insert(
+                "",
+                "end",
+                iid=str(usuario["id"]),
+                values=(
+                    usuario["nombre_usuario"],
+                    usuario["rol"],
+                    "Activo" if usuario["activo"] else "Inactivo",
+                ),
             )
+
+        self.label_estado.config(text=f"Usuarios encontrados: {len(usuarios)}")
+
+    def _abrir_formulario_usuario(self):
+        dialogo = tk.Toplevel(self.ventana)
+        dialogo.title("Agregar usuario")
+        dialogo.transient(self.ventana)
+        dialogo.resizable(False, False)
+
+        formulario = ttk.Frame(dialogo, padding=16)
+        formulario.pack(fill="both", expand=True)
+
+        ttk.Label(formulario, text="Usuario").grid(row=0, column=0, sticky="w")
+        entrada_usuario = ttk.Entry(formulario, width=28)
+        entrada_usuario.grid(row=0, column=1, padx=(10, 0), pady=5)
+
+        ttk.Label(formulario, text="Contraseña").grid(row=1, column=0, sticky="w")
+        entrada_password = ttk.Entry(formulario, width=28, show="*")
+        entrada_password.grid(row=1, column=1, padx=(10, 0), pady=5)
+
+        ttk.Label(formulario, text="Rol").grid(row=2, column=0, sticky="w")
+        combo_rol = ttk.Combobox(
+            formulario,
+            values=tuple(rol.value for rol in RolUsuario),
+            state="readonly",
+            width=25,
+        )
+        combo_rol.set(RolUsuario.CAMPO.value)
+        combo_rol.grid(row=2, column=1, padx=(10, 0), pady=5)
+
+        def guardar():
+            nombre = entrada_usuario.get().strip()
+            password = entrada_password.get()
+
+            if not nombre or not password:
+                messagebox.showwarning(
+                    "Agregar usuario",
+                    "Completá el nombre de usuario y la contraseña.",
+                    parent=dialogo,
+                )
+                return
+
+            try:
+                usuario = self.cliente_api.crear_usuario(
+                    nombre,
+                    password,
+                    combo_rol.get(),
+                )
+            except SesionExpiradaError:
+                return
+            except RuntimeError as error:
+                messagebox.showerror("Agregar usuario", str(error), parent=dialogo)
+                return
+
+            dialogo.destroy()
+            self.mostrar_usuarios()
+
+        botones = ttk.Frame(formulario)
+        botones.grid(row=3, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+        ttk.Button(botones, text="Cancelar", command=dialogo.destroy).pack(
+            side="left", padx=(0, 8)
+        )
+        ttk.Button(botones, text="Guardar", command=guardar).pack(side="left")
+
+        dialogo.wait_visibility()
+        dialogo.grab_set()
+        entrada_usuario.focus_set()
+
+    def _seleccionar_usuario(self, event=None):
+        seleccion = self.tabla_usuarios.selection()
+        usuario_id = seleccion[0] if seleccion else None
+        puede_editar = (
+            usuario_id is not None
+            and usuario_id != str(self.usuario_autenticado.id)
+        )
+
+        self.combo_rol_usuario.configure(
+            state="readonly" if puede_editar else "disabled"
+        )
+        estado_boton = "normal" if puede_editar else "disabled"
+        self.boton_cambiar_rol.configure(state=estado_boton)
+        self.boton_estado_usuario.configure(state=estado_boton)
+        self.boton_eliminar_usuario.configure(state=estado_boton)
+
+        if usuario_id is None:
+            self.combo_rol_usuario.set("")
+            self.boton_estado_usuario.configure(text="Activar / Desactivar")
+            return
+
+        _, rol, estado = self.tabla_usuarios.item(usuario_id, "values")
+        self.combo_rol_usuario.set(rol)
+        self.boton_estado_usuario.configure(
+            text="Desactivar" if estado == "Activo" else "Activar"
+        )
+
+
+    def _cambiar_rol_usuario(self):
+        seleccion = self.tabla_usuarios.selection()
+        if seleccion:
+            self._guardar_cambios_usuario(
+                seleccion[0],
+                {"rol": self.combo_rol_usuario.get()},
+            )
+
+
+    def _alternar_estado_usuario(self):
+        seleccion = self.tabla_usuarios.selection()
+        if not seleccion:
+            return
+
+        usuario_id = seleccion[0]
+        nombre, _, estado = self.tabla_usuarios.item(usuario_id, "values")
+        activar = estado != "Activo"
+
+        if not activar and not messagebox.askyesno(
+            "Desactivar usuario",
+            f"¿Querés desactivar la cuenta de {nombre}?",
+            parent=self.ventana,
+        ):
+            return
+
+        self._guardar_cambios_usuario(usuario_id, {"activo": activar})
+
+    def _eliminar_usuario_seleccionado(self):
+        seleccion = self.tabla_usuarios.selection()
+        if not seleccion:
+            return
+
+        usuario_id = seleccion[0]
+        nombre = self.tabla_usuarios.set(usuario_id, "usuario")
+
+        if not messagebox.askyesno(
+            "Eliminar usuario",
+            f"¿Querés eliminar definitivamente la cuenta de {nombre}?",
+            parent=self.ventana,
+        ):
+            return
+
+        try:
+            self.cliente_api.eliminar_usuario(usuario_id)
+        except SesionExpiradaError:
+            return
+        except RuntimeError as error:
+            messagebox.showerror("Eliminar usuario", str(error), parent=self.ventana)
+            return
+
+        self.tabla_usuarios.delete(usuario_id)
+        self._seleccionar_usuario()
+        self.label_estado.config(text=f"Cuenta eliminada: {nombre}.")
+
+    def _guardar_cambios_usuario(self, usuario_id, cambios):
+        try:
+            usuario = self.cliente_api.actualizar_usuario(usuario_id, cambios)
+        except SesionExpiradaError:
+            return
+        except RuntimeError as error:
+            messagebox.showerror("Gestión de usuarios", str(error), parent=self.ventana)
+            return
+
+        self.tabla_usuarios.item(
+            usuario_id,
+            values=(
+                usuario["nombre_usuario"],
+                usuario["rol"],
+                "Activo" if usuario["activo"] else "Inactivo",
+            ),
+        )
+        self._seleccionar_usuario()
+        self.label_estado.config(
+            text=f"Cuenta actualizada: {usuario['nombre_usuario']}."
         )
 
 
@@ -1746,6 +2022,7 @@ class InterfazGestion:
         )
 
         if not seleccion:
+            self.boton_eliminar_senal.config(state="disabled")
             return
 
         senal_id = seleccion[0]
@@ -1790,6 +2067,8 @@ class InterfazGestion:
         self.boton_actualizar_estado.config(
             state="normal"
         )
+
+        self.boton_eliminar_senal.config(state="normal")
 
         estado = (
             senal["estado_actual"]
@@ -2215,6 +2494,39 @@ class InterfazGestion:
                 f"{estado_nuevo}."
             )
         )
+
+    def _eliminar_senal_seleccionada(self):
+        seleccion = self.tabla_inventario.selection()
+        if not seleccion:
+            return
+
+        senal_id = seleccion[0]
+        senal = self.senales_inventario.get(senal_id)
+        if senal is None:
+            return
+
+        if not messagebox.askyesno(
+            "Eliminar del inventario",
+            f"¿Querés retirar la señal «{senal['clase_nombre']}» del inventario "
+            "y del mapa? Se conservarán sus detecciones y su historial.",
+            parent=self.ventana,
+        ):
+            return
+
+        try:
+            self.cliente_api.eliminar_senal(senal_id)
+        except SesionExpiradaError:
+            return
+        except RuntimeError as error:
+            messagebox.showerror(
+                "Eliminar del inventario",
+                str(error),
+                parent=self.ventana,
+            )
+            return
+
+        self.senal_seleccionada_id = None
+        self.mostrar_inventario()
 
     def _marcar_vista_activa(self, vista=None):
         for nombre, boton in self.botones_vistas.items():

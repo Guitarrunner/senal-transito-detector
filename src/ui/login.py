@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+import ctypes
 
 from src.domain.rol_usuario import RolUsuario
 from src.security.control_acceso import ControlAcceso
@@ -38,6 +39,24 @@ class Login:
             show="*"
         )
         self.password_entry.pack(pady=5)
+
+        self.aviso_caps = tk.Label(
+            self.ventana,
+            text="",
+            fg="#d97706",
+            font=("Arial", 10, "bold"),
+        )
+        self.aviso_caps.pack()
+
+        if self.ventana.tk.call("tk", "windowingsystem") == "aqua":
+            core_graphics = ctypes.CDLL(
+                "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+            )
+            self._leer_modificadores = core_graphics.CGEventSourceFlagsState
+            self._leer_modificadores.argtypes = (ctypes.c_int32,)
+            self._leer_modificadores.restype = ctypes.c_uint64
+
+            self._actualizar_aviso_caps()
 
         boton = tk.Button(
             self.ventana,
@@ -172,5 +191,18 @@ class Login:
             )
             self.password_entry.delete(0, tk.END)
 
+    def _actualizar_aviso_caps(self):
+        sesion_actual = 0
+        mascara_caps_lock = 0x00010000
+
+        en_contrasena = self.ventana.focus_get() == self.password_entry
+        caps_activo = en_contrasena and bool(
+            self._leer_modificadores(sesion_actual) & mascara_caps_lock
+        )
+
+        self.aviso_caps.config(text="CAPS ON" if caps_activo else "")
+        self.ventana.after(150, self._actualizar_aviso_caps)
+
     def ejecutar(self):
         self.ventana.mainloop()
+        
