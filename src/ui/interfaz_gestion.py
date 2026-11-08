@@ -876,7 +876,7 @@ class InterfazGestion:
             state="normal"
         )
 
-    def mostrar_inventario(self):
+    def mostrar_inventario(self, *, senal_id=None):
 
         self._limpiar_contenido_actual()
 
@@ -1206,6 +1206,15 @@ class InterfazGestion:
             text="Confianza"
         )
 
+        self.detecciones_senal = {}
+        self.tabla_detecciones_senal.bind(
+            "<Double-1>", self._abrir_deteccion_desde_inventario
+        )
+        tk.Label(
+            frame_detalle,
+            text="Doble clic en una detección para ver su evidencia."
+        ).pack()
+
         self.tabla_detecciones_senal.pack(
             fill="both",
             padx=20,
@@ -1360,6 +1369,13 @@ class InterfazGestion:
             )
         )
 
+        if senal_id is not None:
+            if tabla.exists(senal_id):
+                tabla.selection_set(senal_id)
+                tabla.focus(senal_id)
+                tabla.see(senal_id)
+            else:
+                self.label_estado.config(text="La señal ya no está en el inventario.")
 
     def mostrar_mapa(self):
 
@@ -1401,25 +1417,6 @@ class InterfazGestion:
             pady=10
         )
 
-        if not senales:
-
-            tk.Label(
-                self.contenido_actual,
-                text=(
-                    "No hay señales "
-                    "georreferenciadas."
-                ),
-                font=("Arial", 12)
-            ).pack(
-                pady=40
-            )
-
-            self.label_estado.config(
-                text="Sin señales para mostrar."
-            )
-
-            return
-
         raiz = Path(__file__).resolve().parents[2]
         ruta_mapa = raiz / "data/mapas/costa_rica.sqlite3"
 
@@ -1449,7 +1446,7 @@ class InterfazGestion:
 
         tk.Label(
             self.contenido_actual,
-            text="© OpenStreetMap contributors · Datos: Geofabrik"
+            text="© OpenStreetMap contributors · Geofabrik · Límites: geoBoundaries"
         ).pack(fill="x")
 
         for senal in senales:
@@ -1457,10 +1454,9 @@ class InterfazGestion:
             mapa.set_marker(
                 senal["latitud"],
                 senal["longitud"],
-                text=(
-                    senal[
-                        "clase_nombre"
-                    ]
+                text=senal["clase_nombre"],
+                command=lambda _, id_senal=str(senal["id"]): self.ventana.after_idle(
+                    lambda: self.mostrar_inventario(senal_id=id_senal)
                 )
             )
 
@@ -1790,6 +1786,15 @@ class InterfazGestion:
         if senal is None:
             return
 
+        self.detecciones_senal = {}
+        filas = self.tabla_detecciones_senal.get_children()
+        if filas:
+            self.tabla_detecciones_senal.delete(*filas)
+        self.label_imagen_senal.unbind("<Button-1>")
+        self.label_imagen_senal.config(image="", text="Sin evidencia disponible.", cursor="")
+        self.label_imagen_senal.image = None
+        self.imagen_senal_tk = None
+
         estado_actual = (
             senal["estado_actual"]
         )
@@ -1862,38 +1867,7 @@ class InterfazGestion:
 
                 try:
 
-                    evidencia_bytes = (
-                        self.cliente_api
-                        .obtener_evidencia_deteccion(
-                            str(deteccion["id"])
-                        )
-                    )
-
-                    imagen = Image.open(
-                        BytesIO(
-                            evidencia_bytes
-                        )
-                    ).convert("RGB")
-
-                    dibujo = ImageDraw.Draw(
-                        imagen
-                    )
-
-                    bbox = (
-                        deteccion["bbox_x1"],
-                        deteccion["bbox_y1"],
-                        deteccion["bbox_x2"],
-                        deteccion["bbox_y2"]
-                    )
-
-                    dibujo.rectangle(
-                        bbox,
-                        outline="red",
-                        width=max(
-                            2,
-                            imagen.width // 300
-                        )
-                    )
+                    imagen = self._cargar_imagen_deteccion(deteccion)
 
                     imagen.thumbnail(
                         (450, 300),
@@ -1915,7 +1889,13 @@ class InterfazGestion:
                         self.imagen_senal_tk
                     )
 
-                except RuntimeError as error:
+                    self.label_imagen_senal.config(cursor="hand2")
+                    self.label_imagen_senal.bind(
+                        "<Button-1>",
+                        lambda _, actual=deteccion: self._abrir_evidencia_inventario(actual)
+                    )
+
+                except (RuntimeError, OSError):
                     self.label_imagen_senal.config(
                         text="No se pudo cargar la evidencia."
                     )
@@ -1928,13 +1908,9 @@ class InterfazGestion:
 
             return
 
-        for item in (
-            self.tabla_detecciones_senal
-            .get_children()
-        ):
-            self.tabla_detecciones_senal.delete(
-                item
-            )
+        self.detecciones_senal = {
+            str(deteccion["id"]): deteccion for deteccion in detecciones
+        }
 
         for deteccion in detecciones:
 
@@ -1969,6 +1945,64 @@ class InterfazGestion:
 
         self._cargar_historial_senal(
             senal_id
+        )
+
+    def _cargar_imagen_deteccion(self, deteccion):
+        evidencia = self.cliente_api.obtener_evidencia_deteccion(str(deteccion["id"]))
+        with Image.open(BytesIO(evidencia)) as archivo:
+            imagen = archivo.convert("RGB")
+
+        ImageDraw.Draw(imagen).rectangle(
+            (deteccion["bbox_x1"], deteccion["bbox_y1"],
+             deteccion["bbox_x2"], deteccion["bbox_y2"]),
+            outline="red", width=max(2, imagen.width // 300)
+        )
+        return imagen
+
+    def _abrir_deteccion_desde_inventario(self, event):
+        fila = self.tabla_detecciones_senal.identify_row(event.y)
+        deteccion = self.detecciones_senal.get(fila)
+        if deteccion is not None:
+            self._abrir_evidencia_inventario(deteccion)
+
+    def _abrir_evidencia_inventario(self, deteccion):
+        try:
+            imagen = self._cargar_imagen_deteccion(deteccion)
+        except SesionExpiradaError:
+            return
+        except (RuntimeError, OSError) as error:
+            messagebox.showerror("Evidencia", str(error), parent=self.ventana)
+            return
+
+        ventana = tk.Toplevel(self.ventana)
+        ventana.title("Detalle de evidencia")
+        imagen.thumbnail(
+            (max(100, min(900, ventana.winfo_screenwidth() - 100)),
+             max(100, min(650, ventana.winfo_screenheight() - 220))),
+            Image.Resampling.LANCZOS
+        )
+        foto = ImageTk.PhotoImage(imagen, master=ventana)
+        vista = tk.Label(ventana, image=foto)
+        vista.image = foto
+        vista.pack(padx=12, pady=12)
+
+        fecha = deteccion["fecha_hora"].replace("T", " ")[:19]
+        datos = [
+            f"Clase: {deteccion['clase_nombre']}",
+            f"Confianza: {deteccion['confianza'] * 100:.1f} %",
+            f"Fecha: {fecha}",
+            f"Revisión: {deteccion['estado_revision']}"
+        ]
+        latitud = deteccion.get("latitud_captura")
+        longitud = deteccion.get("longitud_captura")
+        if latitud is not None and longitud is not None:
+            datos.append(f"Ubicación de captura: {latitud:.6f}, {longitud:.6f}")
+        precision = deteccion.get("precision_ubicacion_m")
+        if precision is not None:
+            datos.append(f"Precisión de ubicación: {precision:.1f} m")
+
+        tk.Label(ventana, text="\n".join(datos), justify="left").pack(
+            anchor="w", padx=12, pady=(0, 12)
         )
 
     def _cargar_historial_senal(

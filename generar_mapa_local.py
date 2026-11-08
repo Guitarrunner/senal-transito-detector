@@ -1,11 +1,14 @@
 import argparse
 import math
 import sqlite3
+from collections import defaultdict
+from contextlib import closing, contextmanager
 from io import BytesIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import geopandas as gpd
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from shapely.geometry import box
 
 
@@ -18,6 +21,8 @@ ESTE, NORTE = -82.4, 11.4
 
 ZOOM_MINIMO = 6
 ZOOM_MAXIMO = 16
+ZOOM_BORDES_CANTONALES = 9
+ZOOM_NOMBRES_CANTONALES = 11
 
 LIMITE_MERCATOR = 20037508.342789244
 ESCALA = 2
@@ -97,13 +102,108 @@ def dibujar_bordes(
                     width=grosor
                 )
 
+def columna_nombre(capa):
+    columnas = {columna.lower(): columna for columna in capa.columns}
+    for nombre in ("shapename", "nombre", "name"):
+        if nombre in columnas:
+            return columnas[nombre]
+    raise ValueError("No se encontró una columna con los nombres de la capa.")
+
+
+def preparar_cantones(ruta, provincias):
+    cantones = gpd.read_file(ruta).to_crs(epsg=3857)
+    if cantones.empty:
+        raise ValueError("La capa de cantones está vacía.")
+
+    cantones["geometry"] = cantones.geometry.make_valid()
+    nombre_canton = columna_nombre(cantones)
+    nombre_provincia = columna_nombre(provincias)
+    etiquetas = []
+
+    for _, canton in cantones.iterrows():
+        geometria = canton.geometry
+        if geometria is None or geometria.is_empty or geometria.area <= 0:
+            raise ValueError("La capa contiene un cantón sin superficie válida.")
+
+        # La mayor área de intersección evita depender de nombres coincidentes.
+        areas = provincias.geometry.intersection(geometria).area
+        if areas.max() <= 0:
+            raise ValueError(f"No se pudo asociar {canton[nombre_canton]} a una provincia.")
+
+        provincia = provincias.loc[areas.idxmax(), nombre_provincia]
+        nombre = canton[nombre_canton]
+        if not isinstance(nombre, str) or not nombre.strip():
+            raise ValueError("Se encontró un cantón sin nombre.")
+        if not isinstance(provincia, str) or not provincia.strip():
+            raise ValueError(f"La provincia de {nombre} no tiene nombre.")
+
+        punto = geometria.representative_point()
+        etiquetas.append((geometria.area, punto, f"{nombre.strip()} - {provincia.strip()}"))
+
+    return cantones.geometry.boundary.reset_index(drop=True), etiquetas
+
+
+def fuente_cantones():
+    for nombre in ("Arial.ttf", "DejaVuSans.ttf",
+                   "/System/Library/Fonts/Supplemental/Arial.ttf"):
+        try:
+            return ImageFont.truetype(nombre, size=11 * ESCALA)
+        except OSError:
+            pass
+    return ImageFont.load_default(size=11 * ESCALA)
+
+
+def etiquetas_por_tesela(etiquetas, zoom, fuente):
+    # Coordenadas de píxeles globales: una etiqueta puede ocupar varias teselas.
+    lado = TAMANO * ESCALA
+    factor = lado * (2 ** zoom) / (2 * LIMITE_MERCATOR)
+    trazo = ESCALA
+    cajas = []
+    por_tesela = defaultdict(list)
+
+    for _, punto, texto in sorted(etiquetas, key=lambda dato: -dato[0]):
+        x = round((punto.x + LIMITE_MERCATOR) * factor)
+        y = round((LIMITE_MERCATOR - punto.y) * factor)
+        izq, sup, der, inf = fuente.getbbox(
+            texto, anchor="mm", stroke_width=trazo
+        )
+        caja = box(x + izq - trazo, y + sup - trazo,
+                   x + der + trazo, y + inf + trazo)
+        if any(caja.intersects(otra) for otra in cajas):
+            continue
+        cajas.append(caja)
+        x1, y1, x2, y2 = caja.bounds
+        for tx in range(math.floor(x1 / lado), math.floor(x2 / lado) + 1):
+            for ty in range(math.floor(y1 / lado), math.floor(y2 / lado) + 1):
+                por_tesela[tx, ty].append((x - tx * lado, y - ty * lado, texto))
+
+    return por_tesela
+
+
+@contextmanager
+def construir_base(destino):
+    # El visor conserva la base anterior hasta que se completa la nueva.
+    with TemporaryDirectory(prefix="mapa-", dir=destino.parent) as temporal:
+        base_temporal = Path(temporal) / destino.name
+        with closing(sqlite3.connect(base_temporal)) as conexion:
+            yield conexion
+            conexion.commit()
+        base_temporal.replace(destino)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("archivo")
+    parser.add_argument("--cantones", type=Path, help="Capa GeoJSON CRI ADM2")
+    parser.add_argument("--salida", type=Path, help="Ruta de la base SQLite")
+    parser.add_argument(
+        "--zoom-maximo", type=int, default=ZOOM_MAXIMO,
+        choices=range(ZOOM_MINIMO, ZOOM_MAXIMO + 1)
+    )
     argumentos = parser.parse_args()
 
     raiz = Path(__file__).resolve().parent
-    destino = raiz / "data/mapas/costa_rica.sqlite3"
+    destino = argumentos.salida or raiz / "data/mapas/costa_rica.sqlite3"
     destino.parent.mkdir(parents=True, exist_ok=True)
 
     print("Leyendo y proyectando calles...", flush=True)
@@ -144,7 +244,16 @@ def main():
     borde_nacional = pais.geometry.boundary
     bordes_provincias = provincias.geometry.boundary
 
-    with sqlite3.connect(destino) as conexion:
+    bordes_cantones, nombres_cantones, indice_cantones, fuente = (), (), None, None
+    if argumentos.cantones:
+        print("Preparando cantones y etiquetas...", flush=True)
+        bordes_cantones, nombres_cantones = preparar_cantones(
+            argumentos.cantones, provincias
+        )
+        indice_cantones = bordes_cantones.sindex
+        fuente = fuente_cantones()
+
+    with construir_base(destino) as conexion:
         conexion.execute("""
             CREATE TABLE IF NOT EXISTS tiles (
                 zoom INTEGER NOT NULL,
@@ -156,7 +265,11 @@ def main():
             )
         """)
 
-        for zoom in range(ZOOM_MINIMO, ZOOM_MAXIMO + 1):
+        for zoom in range(ZOOM_MINIMO, argumentos.zoom_maximo + 1):
+            etiquetas = (
+                etiquetas_por_tesela(nombres_cantones, zoom, fuente)
+                if fuente and zoom >= ZOOM_NOMBRES_CANTONALES else {}
+            )
             x_min, y_min = coordenada_tesela(
                 OESTE, NORTE, zoom
             )
@@ -224,6 +337,13 @@ def main():
                                     width=ESCALA
                                 )
 
+                    if indice_cantones is not None and zoom >= ZOOM_BORDES_CANTONALES:
+                        indices = indice_cantones.query(region, predicate="intersects")
+                        dibujar_bordes(
+                            dibujo, bordes_cantones.iloc[indices], region,
+                            izquierda, arriba, factor, "#772110", 3*ESCALA
+                        )
+
                     dibujar_bordes(
                         dibujo,
                         bordes_provincias,
@@ -231,8 +351,8 @@ def main():
                         izquierda,
                         arriba,
                         factor,
-                        color="#655070",
-                        grosor=2 * ESCALA
+                        color="#6C2393",
+                        grosor=5 * ESCALA
                     )
 
                     dibujar_bordes(
@@ -243,8 +363,15 @@ def main():
                         arriba,
                         factor,
                         color="#202020",
-                        grosor=4 * ESCALA
+                        grosor=7 * ESCALA
                     )
+
+                    for px, py, texto in etiquetas.get((x, y), ()):
+                        dibujo.text(
+                            (px, py), texto, font=fuente, anchor="mm",
+                            fill="#34283d", stroke_width=ESCALA,
+                            stroke_fill="#ffffff"
+                        )
 
                     imagen = imagen.resize(
                         (TAMANO, TAMANO),
@@ -270,6 +397,7 @@ def main():
                     )
 
             conexion.commit()
+
 
     print(f"\nMapa generado: {destino}")
 
