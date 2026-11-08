@@ -118,28 +118,6 @@ class InterfazGestion:
             padx=(0, 10)
         )
 
-
-        # ===== USUARIO =====
-
-        label_usuario = tk.Label(
-            sidebar,
-            text=(
-                f"Usuario: "
-                f"{self.usuario_autenticado.nombre_usuario}\n"
-                f"Rol: "
-                f"{self.usuario_autenticado.rol.value}"
-            ),
-            font=("Arial", 11, "bold"),
-            bg="#f0f0f0",
-            fg="#333333",
-            justify="left"
-        )
-
-        label_usuario.pack(
-            pady=(15, 20)
-        )
-
-
         # ===== BOTONES PRINCIPALES =====
 
         boton_detecciones = tk.Button(
@@ -180,6 +158,11 @@ class InterfazGestion:
             pady=5
         )
 
+        self.botones_vistas = {
+            "detecciones": boton_detecciones,
+            "inventario": boton_inventario,
+            "mapa": boton_mapa
+        }
 
         # ===== FUNCIONES ADMINISTRADOR =====
 
@@ -236,14 +219,13 @@ class InterfazGestion:
 
         self.titulo_contenido = tk.Label(
             self.frame_contenido,
-            text="Gestión de señales",
+            text="",
             font=("Arial", 20, "bold")
         )
 
         self.titulo_contenido.pack(
             pady=20
         )
-
 
         self.texto_contenido = tk.Label(
             self.frame_contenido,
@@ -268,7 +250,8 @@ class InterfazGestion:
             sidebar,
             text="Administración",
             font=("Arial", 12, "bold"),
-            bg="#f0f0f0"
+            bg="#f0f0f0",
+            fg="#333333"
         )
 
         separador.pack(
@@ -314,6 +297,11 @@ class InterfazGestion:
             pady=5
         )
 
+        self.botones_vistas.update({
+            "usuarios": boton_usuarios,
+            "dataset": boton_dataset,
+            "modelos": boton_modelos,
+        })
 
     def centrar_ventana(
         self,
@@ -349,6 +337,7 @@ class InterfazGestion:
     def mostrar_detecciones(self):
 
         self._limpiar_contenido_actual()
+        self._marcar_vista_activa("detecciones")
 
         self.titulo_contenido.config(
             text="Detecciones pendientes"
@@ -417,26 +406,21 @@ class InterfazGestion:
             self.contenido_actual
         )
 
-        frame_lista.pack(
-            side="left",
-            fill="both",
-            expand=True,
-            padx=(0, 10)
-        )
-
 
         contenedor_detalle = tk.Frame(
             self.contenido_actual,
             bd=1,
-            relief="solid"
+            relief="solid",
         )
 
-        contenedor_detalle.pack(
-            side="right",
-            fill="both",
-            expand=True,
-            padx=(10, 0)
-        )
+        paneles = ttk.Panedwindow(self.contenido_actual, orient=tk.VERTICAL)
+        paneles.pack(fill="both", expand=True)
+
+        frame_lista = ttk.Frame(paneles)
+        contenedor_detalle = ttk.Frame(paneles)
+
+        paneles.add(frame_lista, weight=1)
+        paneles.add(contenedor_detalle, weight=2)
 
 
         canvas_detalle = tk.Canvas(
@@ -471,6 +455,15 @@ class InterfazGestion:
         frame_detalle = tk.Frame(
             canvas_detalle
         )
+
+        self.mensaje_sin_deteccion = tk.Label(
+            frame_detalle,
+            text="Seleccione una detección para ver su evidencia.",
+            font=("Arial", 12),
+        )
+        self.mensaje_sin_deteccion.pack(pady=35)
+
+        self.vista_detalle_deteccion = tk.Frame(frame_detalle)
 
         ventana_detalle = (
             canvas_detalle.create_window(
@@ -512,7 +505,7 @@ class InterfazGestion:
             frame_lista,
             columns=columnas,
             show="headings",
-            height=20
+            height=3
         )
 
         tabla.heading(
@@ -565,7 +558,7 @@ class InterfazGestion:
         )
 
         titulo_detalle = tk.Label(
-            frame_detalle,
+            self.vista_detalle_deteccion,
             text="Detalle de detección",
             font=("Arial", 16, "bold")
         )
@@ -574,12 +567,22 @@ class InterfazGestion:
             pady=(15, 5)
         )
 
+        fila_detalle = tk.Frame(self.vista_detalle_deteccion)
+        fila_detalle.pack(fill="x", padx=20, pady=(0, 15))
+
+        fila_detalle.columnconfigure(0, weight=1)
+        fila_detalle.columnconfigure(1, weight=1)
+
+        self.frame_foto = tk.Frame(fila_detalle)
+        self.frame_foto.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+
+        frame_info = tk.Frame(fila_detalle)
+        frame_info.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
 
         self.label_evidencia = tk.Label(
-            frame_detalle,
+            self.frame_foto,
             text=(
-                "Seleccione una detección "
-                "para ver su evidencia."
+                ""
             )
         )
 
@@ -589,11 +592,11 @@ class InterfazGestion:
 
 
         self.label_detalle_deteccion = tk.Label(
-            frame_detalle,
+            frame_info,
             text="",
             font=("Arial", 11),
             justify="left",
-            anchor="w"
+            anchor="w",
         )
 
         self.label_detalle_deteccion.pack(
@@ -603,7 +606,7 @@ class InterfazGestion:
         )
 
         frame_botones = tk.Frame(
-            frame_detalle
+            frame_info
         )
 
         frame_botones.pack(
@@ -616,15 +619,9 @@ class InterfazGestion:
             text="Aprobar",
             command=self._aprobar_deteccion,
             width=15,
-            height=2,
+            height=6,
             state="disabled"
         )
-
-        self.boton_aprobar.pack(
-            side="left",
-            padx=10
-        )
-
 
         self.boton_rechazar = tk.Button(
             frame_botones,
@@ -635,10 +632,11 @@ class InterfazGestion:
             state="disabled"
         )
 
-        self.boton_rechazar.pack(
-            side="left",
-            padx=10
-        )
+        frame_botones.columnconfigure(0, weight=1, uniform="revision")
+        frame_botones.columnconfigure(1, weight=1, uniform="revision")
+
+        self.boton_aprobar.grid(row=0, column=0, sticky="ew", padx=10)
+        self.boton_rechazar.grid(row=0, column=1, sticky="ew", padx=10)
 
         tabla.configure(
             yscrollcommand=scrollbar.set
@@ -777,9 +775,14 @@ class InterfazGestion:
             width=grosor
         )
 
+        self.mensaje_sin_deteccion.pack_forget()
+        self.vista_detalle_deteccion.pack(fill="x")
+        self.vista_detalle_deteccion.update_idletasks()
+
+        ancho_foto = max(1, self.frame_foto.winfo_width() - 20)
         imagen.thumbnail(
-            (500, 430),
-            Image.Resampling.LANCZOS
+            (min(600, ancho_foto), 520),
+            Image.Resampling.LANCZOS,
         )
 
         self.imagen_evidencia_tk = (
@@ -861,6 +864,9 @@ class InterfazGestion:
             text=texto
         )
 
+        self.mensaje_sin_deteccion.pack_forget()
+        self.vista_detalle_deteccion.pack(fill="x")
+
         self.label_estado.config(
             text=(
                 "Detección seleccionada: "
@@ -879,6 +885,7 @@ class InterfazGestion:
     def mostrar_inventario(self, *, senal_id=None):
 
         self._limpiar_contenido_actual()
+        self._marcar_vista_activa("inventario")
 
         self.titulo_contenido.config(
             text="Inventario"
@@ -941,26 +948,20 @@ class InterfazGestion:
             self.contenido_actual
         )
 
-        frame_lista.pack(
-            side="left",
-            fill="both",
-            expand=True,
-            padx=(0, 10)
-        )
-
-
         contenedor_detalle = tk.Frame(
             self.contenido_actual,
             bd=1,
             relief="solid"
         )
 
-        contenedor_detalle.pack(
-            side="right",
-            fill="both",
-            expand=True,
-            padx=(10, 0)
-        )
+        paneles = ttk.Panedwindow(self.contenido_actual, orient=tk.VERTICAL)
+        paneles.pack(fill="both", expand=True)
+
+        frame_lista = ttk.Frame(paneles)
+        contenedor_detalle = ttk.Frame(paneles)
+
+        paneles.add(frame_lista, weight=1)
+        paneles.add(contenedor_detalle, weight=2)
 
         canvas_detalle = tk.Canvas(
             contenedor_detalle,
@@ -1029,7 +1030,8 @@ class InterfazGestion:
         tabla = ttk.Treeview(
             frame_lista,
             columns=columnas,
-            show="headings"
+            show="headings",
+            height=2
         )
 
         tabla.heading(
@@ -1101,82 +1103,52 @@ class InterfazGestion:
             pady=(15, 10)
         )
 
+        fila_detalle = tk.Frame(frame_detalle)
+        fila_detalle.pack(fill="x", padx=20, pady=(0, 15))
 
-        self.label_detalle_senal = tk.Label(
-            frame_detalle,
-            text=(
-                "Seleccione una señal "
-                "del inventario."
-            ),
-            font=("Arial", 11),
-            justify="left",
-            anchor="w"
+        fila_detalle.columnconfigure(0, weight=2)
+        fila_detalle.columnconfigure(1, weight=3)
+
+        self.frame_estado_evidencia = tk.Frame(fila_detalle)
+        self.frame_estado_evidencia.grid(
+            row=0, column=0, sticky="nsew", padx=(0, 12)
         )
 
-        self.label_detalle_senal.pack(
-            fill="x",
-            padx=25,
-            pady=10
+        frame_info_tablas = tk.Frame(fila_detalle)
+        frame_info_tablas.grid(
+            row=0, column=1, sticky="nsew", padx=(12, 0)
         )
 
-        frame_estado = tk.Frame(
-            frame_detalle
+        self.label_imagen_senal = tk.Label(
+            self.frame_estado_evidencia,
+            text="Sin evidencia disponible.",
         )
+        self.label_imagen_senal.pack(pady=(10, 6))
 
-        frame_estado.pack(
-            fill="x",
-            padx=20,
-            pady=10
-        )
+        frame_estado = tk.Frame(self.frame_estado_evidencia)
+        frame_estado.pack(fill="x", padx=20, pady=(0, 10))
 
-
-        tk.Label(
-            frame_estado,
-            text="Estado:"
-        ).pack(
-            pady=(0, 5)
-        )
-
+        tk.Label(frame_estado, text="Estado:").pack(pady=(0, 5))
 
         self.combo_estado_senal = ttk.Combobox(
             frame_estado,
-            values=(
-                "BUENO",
-                "REGULAR",
-                "MALO"
-            ),
+            values=("BUENO", "REGULAR", "MALO"),
             state="readonly",
-            width=20
+            width=20,
         )
-
-        self.combo_estado_senal.pack(
-            pady=(0, 8)
-        )
-
+        self.combo_estado_senal.pack(pady=(0, 8))
 
         self.boton_actualizar_estado = tk.Button(
             frame_estado,
             text="Actualizar estado",
             command=self._actualizar_estado_senal,
             state="disabled",
-            width=20
+            width=20,
         )
-
-        self.boton_actualizar_estado.pack(
-            pady=(0, 10)
-        )
-
-        self.label_imagen_senal = tk.Label(
-            frame_detalle,
-            text="Sin evidencia disponible."
-        )
-
-        self.label_imagen_senal.pack(
-            pady=10
-        )
+        self.boton_actualizar_estado.pack(pady=(0, 10))
 
         tk.Label(
-            frame_detalle,
+            frame_info_tablas,
             text="Detecciones asociadas",
             font=("Arial", 12, "bold")
         ).pack(
@@ -1186,7 +1158,7 @@ class InterfazGestion:
 
         self.tabla_detecciones_senal = (
             ttk.Treeview(
-                frame_detalle,
+                frame_info_tablas,
                 columns=(
                     "fecha",
                     "confianza"
@@ -1211,7 +1183,7 @@ class InterfazGestion:
             "<Double-1>", self._abrir_deteccion_desde_inventario
         )
         tk.Label(
-            frame_detalle,
+            frame_info_tablas,
             text="Doble clic en una detección para ver su evidencia."
         ).pack()
 
@@ -1229,7 +1201,7 @@ class InterfazGestion:
         )
 
         tk.Label(
-            frame_detalle,
+            frame_info_tablas,
             text="Historial de estado",
             font=("Arial", 12, "bold")
         ).pack(
@@ -1238,7 +1210,7 @@ class InterfazGestion:
 
 
         self.tabla_historial_senal = ttk.Treeview(
-            frame_detalle,
+            frame_info_tablas,
             columns=(
                 "fecha",
                 "cambio",
@@ -1380,6 +1352,7 @@ class InterfazGestion:
     def mostrar_mapa(self):
 
         self._limpiar_contenido_actual()
+        self._marcar_vista_activa("mapa")
 
         self.titulo_contenido.config(
             text="Mapa"
@@ -1418,7 +1391,7 @@ class InterfazGestion:
         )
 
         raiz = Path(__file__).resolve().parents[2]
-        ruta_mapa = raiz / "data/mapas/costa_rica.sqlite3"
+        ruta_mapa = raiz / "data/mapas/prueba_negrita.sqlite3"
 
         if not ruta_mapa.is_file():
             self.label_estado.config(
@@ -1472,6 +1445,8 @@ class InterfazGestion:
 
     def mostrar_usuarios(self):
 
+        self._marcar_vista_activa("usuarios")
+
         self.titulo_contenido.config(
             text="Gestión de usuarios"
         )
@@ -1487,7 +1462,7 @@ class InterfazGestion:
     def mostrar_modelos(self):
 
         self._limpiar_contenido_actual()
-
+        self._marcar_vista_activa("modelos")
         self.titulo_contenido.config(
             text="Gestión de modelos"
         )
@@ -1515,6 +1490,7 @@ class InterfazGestion:
     def mostrar_dataset(self):
 
         self._limpiar_contenido_actual()
+        self._marcar_vista_activa("dataset")
 
         self.titulo_contenido.config(
             text="Etiquetado de dataset"
@@ -1834,17 +1810,6 @@ class InterfazGestion:
             f"{estado}"
         )
 
-        self.label_detalle_senal.config(
-            text=texto
-        )
-
-        self.label_estado.config(
-            text=(
-                "Consultando detecciones "
-                "asociadas..."
-            )
-        )
-
         try:
 
             detecciones = (
@@ -1869,9 +1834,12 @@ class InterfazGestion:
 
                     imagen = self._cargar_imagen_deteccion(deteccion)
 
+                    ancho_columna = self.frame_estado_evidencia.winfo_width()
+                    ancho_foto = min(450, max(1, ancho_columna - 20))
+
                     imagen.thumbnail(
-                        (450, 300),
-                        Image.Resampling.LANCZOS
+                        (ancho_foto, 300),
+                        Image.Resampling.LANCZOS,
                     )
 
                     self.imagen_senal_tk = (
@@ -2247,3 +2215,9 @@ class InterfazGestion:
                 f"{estado_nuevo}."
             )
         )
+
+    def _marcar_vista_activa(self, vista=None):
+        for nombre, boton in self.botones_vistas.items():
+            boton.configure(
+                state=tk.DISABLED if nombre == vista else tk.NORMAL
+            )

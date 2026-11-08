@@ -325,16 +325,16 @@ class EtiquetadorDataset(tk.Frame):
 
         # ----- controles -----
 
-        frame_controles = tk.Frame(
-            cuerpo,
-            width=230
-        )
+        frame_controles = tk.Frame(cuerpo, width=270)
 
         frame_controles.pack(
             side="right",
             fill="y",
-            padx=(10, 0)
+            padx=(10, 0),
+            before=frame_canvas,
         )
+
+        frame_controles.pack_propagate(False)
 
         tk.Label(
             frame_controles,

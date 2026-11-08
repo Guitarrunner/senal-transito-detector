@@ -19,8 +19,8 @@ SERVIDOR = "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
 OESTE, SUR = -86.2, 8.0
 ESTE, NORTE = -82.4, 11.4
 
-ZOOM_MINIMO = 6
-ZOOM_MAXIMO = 16
+ZOOM_MINIMO = 7
+ZOOM_MAXIMO = 17
 ZOOM_BORDES_CANTONALES = 9
 ZOOM_NOMBRES_CANTONALES = 11
 
@@ -144,12 +144,15 @@ def preparar_cantones(ruta, provincias):
 
 
 def fuente_cantones():
-    for nombre in ("Arial.ttf", "DejaVuSans.ttf",
-                   "/System/Library/Fonts/Supplemental/Arial.ttf"):
+    for nombre in (
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "DejaVuSans-Bold.ttf",
+    ):
         try:
-            return ImageFont.truetype(nombre, size=11 * ESCALA)
+            return ImageFont.truetype(nombre, size=12 * ESCALA)
         except OSError:
             pass
+
     return ImageFont.load_default(size=11 * ESCALA)
 
 
@@ -371,6 +374,15 @@ def main():
                             (px, py), texto, font=fuente, anchor="mm",
                             fill="#34283d", stroke_width=ESCALA,
                             stroke_fill="#ffffff"
+                        )
+                        dibujo.text(
+                            (px, py),
+                            texto,
+                            font=fuente,
+                            anchor="mm",
+                            fill="#34283d",
+                            stroke_width=1,
+                            stroke_fill="#34283d",
                         )
 
                     imagen = imagen.resize(
