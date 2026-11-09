@@ -195,7 +195,8 @@ class Login:
         sesion_actual = 0
         mascara_caps_lock = 0x00010000
 
-        en_contrasena = self.ventana.focus_get() == self.password_entry
+        widget_con_foco = self.ventana.tk.call("focus")
+        en_contrasena = str(widget_con_foco) == str(self.password_entry)
         caps_activo = en_contrasena and bool(
             self._leer_modificadores(sesion_actual) & mascara_caps_lock
         )

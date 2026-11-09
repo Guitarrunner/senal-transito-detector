@@ -1402,7 +1402,7 @@ class InterfazGestion:
         )
 
         raiz = Path(__file__).resolve().parents[2]
-        ruta_mapa = raiz / "data/mapas/prueba_negrita.sqlite3"
+        ruta_mapa = raiz / "data/mapas/costa_rica.sqlite3"
 
         if not ruta_mapa.is_file():
             self.label_estado.config(
@@ -2462,22 +2462,6 @@ class InterfazGestion:
         self.tabla_inventario.item(
             senal_id,
             values=valores
-        )
-
-        self.label_detalle_senal.config(
-            text=(
-                f"Clase: "
-                f"{senal_actualizada['clase_nombre']}\n\n"
-
-                f"Latitud: "
-                f"{senal_actualizada['latitud']:.6f}\n\n"
-
-                f"Longitud: "
-                f"{senal_actualizada['longitud']:.6f}\n\n"
-
-                f"Estado: "
-                f"{senal_actualizada['estado_actual']}"
-            )
         )
 
         self._cargar_historial_senal(
