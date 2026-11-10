@@ -20,9 +20,6 @@ from src.gestion.modelos import (
     ClaseSenalBD,
 )
 
-CLASES_EXCLUIDAS = {
-    "TREN"
-}
 
 def _inferir_grupo_fisico(
     nombre_archivo: str
@@ -175,7 +172,6 @@ def exportar_dataset_yolo(
         for clase in clases
         if (
             clase.nombre.upper()
-            not in CLASES_EXCLUIDAS
         )
     ]
 
@@ -246,16 +242,6 @@ def exportar_dataset_yolo(
                 grupo_fisico
             )
         ).upper()
-
-        # TREN queda completamente fuera
-        # de esta primera versión.
-
-        if (
-            clase_grupo
-            in CLASES_EXCLUIDAS
-        ):
-            imagenes_omitidas += 1
-            continue
 
         grupos_por_clase[
             clase_grupo
@@ -460,12 +446,6 @@ def exportar_dataset_yolo(
                 grupo_fisico
             )
         ).upper()
-
-        if (
-            clase_grupo
-            in CLASES_EXCLUIDAS
-        ):
-            continue
 
         if (
             grupo_fisico

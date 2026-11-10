@@ -99,7 +99,7 @@ def guardar_imagen_dataset(
         "JPEG": ".jpg",
         "PNG": ".png",
         "BMP": ".bmp",
-        "HEIF": ".heic"
+        "HEIF": ".jpg"
     }
 
     if formato not in extensiones:
@@ -125,41 +125,20 @@ def guardar_imagen_dataset(
         exist_ok=True
     )
 
-    nombre_fisico = (
-        f"{uuid.uuid4()}{extension}"
-    )
-
-    ruta_fisica = (
-        directorio_dataset / nombre_fisico
-    )
-
-    ruta_relativa = (
-        Path(str(dataset.id))
-        / nombre_fisico
-    )
+    nombre_fisico = f"{uuid.uuid4()}{extension}"
+    ruta_fisica = directorio_dataset / nombre_fisico
+    ruta_relativa = Path(str(dataset.id)) / nombre_fisico
 
     if formato == "HEIF":
-        nombre_fisico = f"{uuid.uuid4()}.jpg"
-        ruta_fisica = directorio_dataset / nombre_fisico
-
         with Image.open(BytesIO(contenido)) as imagen:
             imagen.convert("RGB").save(
                 ruta_fisica,
                 format="JPEG",
                 quality=95
             )
-
     else:
-        nombre_fisico = (
-            f"{uuid.uuid4()}{extensiones[formato]}"
-        )
-
-        ruta_fisica = (
-            directorio_dataset / nombre_fisico
-        )
-
         ruta_fisica.write_bytes(contenido)
-
+        
     imagen_bd = ImagenDatasetBD(
         dataset_id=dataset.id,
         ruta_archivo=str(ruta_relativa),

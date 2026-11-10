@@ -48,6 +48,10 @@ tools/ubicacion/*.app/
 
 .venv-coreml/
 
+ARCHIVO.gpkg/
+
+ios/senalesCampo/senalesCampo.xcodeproj/
+
 *.pt
 *.onnx
 .DS_Store

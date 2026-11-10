@@ -70,16 +70,15 @@ def crear_clases_iniciales(sesion):
         (4, "no_izquierda", "Reglamentación"),
         (5, "no_paso", "Reglamentación"),
         
-        (6, "desvio", "Prevención"),
+        (6, "interseccion", "Prevención"),
         (7, "peaton", "Prevención"),
         (8, "tren", "Prevención"),
         (9, "semaforo", "Prevención"),
         (10, "reductor", "Prevención"),
         (11, "escolar", "Prevención"),
 
-        (12, "kilometro", "Información"),
-        (13, "lugar", "Información"),
-        (14, "gasolinera", "Información"),
+        (12, "lugar", "Información"),
+        (13, "bici", "Información"),
     ]
 
     for codigo, nombre, categoria in clases:
