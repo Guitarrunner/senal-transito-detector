@@ -1,150 +1,38 @@
 # Guía de usuario
 
-Esta guía describe el uso básico del sistema de reconocimiento automático de señales de tránsito mediante visión por computadora.
+El sistema tiene una app de captura para iPhone y una interfaz de escritorio para Gestión. Para instalación y configuración, consultá la [guía técnica](guia_tecnica.md).
 
-## Requisitos previos
+## Campo · Capturar desde el iPhone
 
-* Python 3 instalado.
-* Entorno virtual creado y activado.
-* Dependencias instaladas desde `requirements.txt`.
-* Modelo YOLO disponible.
+1. Abrí **Señales Campo** e iniciá sesión con tu cuenta de Campo mientras el servidor esté accesible.
+2. Permití cámara, ubicación durante el uso y acceso a la red local cuando el iPhone lo solicite.
+3. Tocá **Iniciar cámara**, apuntá a la señal y esperá a que aparezcan la clase y la confianza.
+4. Tocá **Capturar detección** y esperá a que se genere la evidencia. La app necesita una señal detectada y una lectura de ubicación reciente. Si aparece un aviso de ubicación, esperá una nueva lectura y repetí la captura.
+5. Revisá **Última captura** y confirmá que la evidencia cubra los rostros o placas visibles. El tratamiento automático cubre las regiones que logra detectar.
+6. Usá **Enviar pendientes** cuando tengas acceso a Gestión. **Revisar cola local** actualiza la lista de capturas de tu cuenta. Una captura puede contener varias señales y sale de la lista cuando se confirma el envío de todas.
 
-El sistema puede ejecutarse con el modelo base de YOLO (`yolov8n.pt`) o con un modelo entrenado propio. Para utilizar un modelo entrenado, se recomienda colocarlo en:
+Si perdés la conexión después de iniciar sesión, podés seguir capturando con la app abierta y la ubicación disponible. Las capturas pendientes se guardan en el teléfono. Al recuperar la conexión, podés enviarlas manualmente o dejar que la app reintente mientras esté activa. Si cerrás la app y tenés que iniciar sesión de nuevo, necesitás acceso a Gestión. El botón **Eliminar** borra de la cola la copia local de la captura seleccionada.
 
-```text
-models/best.pt
-```
+## Operador · Revisar e inventariar
 
-Si el archivo `models/best.pt` no existe, el sistema utiliza el modelo base `yolov8n.pt` como respaldo.
+1. Abrí Gestión e iniciá sesión como operador. Entrá a **Detecciones pendientes**.
+2. Seleccioná una fila y revisá la clase, la confianza, la evidencia y la ubicación disponible.
+3. Usá **Aprobar** si la detección corresponde a una señal válida, o **Rechazar** si la evidencia no la respalda.
+4. Abrí **Inventario** para consultar la señal aprobada y sus detecciones asociadas. Seleccioná la señal para revisar su detalle.
+5. Si corresponde un cambio de condición, seleccioná el nuevo estado y pulsá **Actualizar estado**. Confirmá el cambio en **Historial de estado**.
+6. Abrí **Mapa** para consultar las señales que tienen coordenadas. Podés seleccionar un marcador para volver al detalle en el inventario. El punto indica dónde se realizó la captura.
 
-## Instalación
+## Administración · Usuarios, datasets y modelos
 
-Desde la raíz del proyecto:
+- **Usuarios.** Creá cuentas y asigná el rol de Campo, Operador o Administrador. Desde esta vista también podés activar o desactivar cuentas.
+- **Dataset.** Seleccioná o creá un dataset, cargá imágenes y abrí una para etiquetarla. Dibujá un recuadro ajustado alrededor de cada señal visible que pertenezca al catálogo, elegí la clase y pulsá **Guardar anotación**. Revisá las anotaciones y las estadísticas antes de exportar.
+- **Modelos.** En **Nuevo entrenamiento**, seleccioná el dataset y completá los parámetros. Pulsá **Iniciar entrenamiento** y consultá el progreso en **Entrenamientos**. En **Modelos entrenados**, seleccioná una versión y usá **Activar modelo seleccionado** cuando coincida con la versión instalada en el cliente. Activar una versión en Gestión no instala un paquete nuevo en el iPhone.
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+## Si algo falla
 
-## Ejecución
-
-Para ejecutar la interfaz gráfica del sistema:
-
-```bash
-python -m src.main
-```
-
-Al iniciar, se muestra la ventana de inicio de sesión. La ventana se abre centrada y al frente de la pantalla.
-
-## Inicio de sesión
-
-Usuarios de prueba:
-
-```text
-Usuario: admin
-Contraseña: admin123
-```
-
-```text
-Usuario: operador
-Contraseña: operador123
-```
-
-Para ingresar, se puede presionar el botón **Ingresar** o utilizar la tecla **Enter** después de escribir las credenciales.
-
-## Procesamiento de una imagen
-
-Para procesar una imagen:
-
-1. Iniciar sesión en el sistema.
-2. Presionar el botón para seleccionar o procesar una imagen.
-3. Seleccionar una imagen en formato JPG, JPEG o PNG.
-4. Esperar a que el sistema procese la imagen.
-5. Revisar la imagen generada con bounding boxes.
-6. Revisar el panel de detecciones.
-
-El sistema realiza el procesamiento de la imagen, ejecuta el modelo YOLO, muestra las detecciones encontradas y guarda la información generada en archivos locales.
-
-## Resultados generados
-
-Durante la ejecución, el sistema puede generar archivos en las siguientes carpetas:
-
-```text
-data/processed/   imágenes procesadas
-data/evidence/    imágenes con bounding boxes
-data/metadata/    archivos JSON con datos estructurados
-```
-
-Los archivos JSON almacenan información relacionada con imágenes procesadas, detecciones, etiquetas y datos necesarios para la exportación.
-
-## Exportación de dataset
-
-El sistema permite exportar imágenes y etiquetas en una estructura compatible con YOLO. Sin embargo, la exportación no se realiza automáticamente con todas las detecciones, ya que algunas detecciones podrían ser incorrectas.
-
-El flujo recomendado es:
-
-1. Procesar una imagen.
-2. Revisar visualmente las detecciones y bounding boxes generadas.
-3. Si las detecciones son correctas, presionar el botón **Agregar a exportación**.
-4. Repetir el proceso con otras imágenes si se desea.
-5. Presionar el botón **Exportar dataset YOLO**.
-
-De esta forma, solo se exportan las imágenes aprobadas manualmente por el usuario.
-
-Cada vez que se realiza una exportación, el sistema crea una carpeta nueva dentro de:
-
-```text
-exports/
-```
-
-Por ejemplo:
-
-```text
-exports/yolo_dataset_20260613_143210/
-```
-
-Dentro de esa carpeta se genera una estructura compatible con YOLO:
-
-```text
-images/train/
-labels/train/
-dataset.yaml
-```
-La exportación desde la interfaz coloca las imágenes aprobadas en el conjunto train. La separación en val y test no se realiza automáticamente, ya que requiere una selección controlada del dataset. En caso de utilizar las exportaciones para entrenamiento formal, se recomienda revisar las etiquetas y dividir manualmente el dataset en entrenamiento, validación y prueba.
-
-El archivo `dataset.yaml` contiene las clases configuradas para el modelo.
-
-## Cola de exportación
-
-La cola de exportación almacena las imágenes aprobadas por el usuario durante una sesión de uso.
-
-Al iniciar nuevamente la aplicación, la cola de exportación se limpia para comenzar desde cero. Sin embargo, las carpetas de exportación generadas anteriormente dentro de `exports/` se conservan como evidencia de exportaciones previas.
-
-## Cambio de modelo
-
-El modelo de detección es reemplazable. Para utilizar un modelo entrenado propio, se recomienda copiarlo a:
-
-```text
-models/best.pt
-```
-
-Por ejemplo:
-
-```bash
-mkdir -p models
-cp runs/detect/senales_cr_v3/weights/best.pt models/best.pt
-```
-
-Una vez colocado el archivo en esa ruta, el sistema lo utilizará automáticamente al iniciar. Si el archivo no existe, el sistema utiliza `yolov8n.pt` como modelo de respaldo.
-
-Esto permite actualizar el modelo de detección sin modificar la arquitectura principal del sistema.
-
-## Consideraciones
-
-* El sistema funciona como prototipo local.
-* La calidad de la detección depende del modelo utilizado.
-* Las detecciones automáticas deben revisarse antes de ser utilizadas para entrenamiento.
-* El dataset exportado desde la interfaz debe entenderse como un conjunto aprobado por el usuario durante la sesión.
-* El modelo especializado puede mejorar con más imágenes, mejor balance entre clases y revisión de etiquetas.
-* La funcionalidad de video queda como una línea de mejora futura y requiere validación adicional.
+| Lo que ves | Qué revisar |
+| --- | --- |
+| El iPhone no inicia sesión | Comprobá que la Mac y el iPhone tengan acceso a la misma red, que la API esté corriendo y que la app tenga permiso de red local. |
+| No se puede capturar | Revisá los permisos, esperá una lectura de ubicación reciente y confirmá que aparezca una detección en pantalla. |
+| Hay capturas pendientes | Abrí el detalle del error en la cola y restablecé la conexión. Si el error menciona el modelo o una clase, avisá a Administración para revisar la versión activa o el catálogo. |
+| No aparece una señal en el mapa | Confirmá que la detección esté aprobada, que la señal tenga coordenadas y que Gestión tenga instalada la base del mapa local. |
