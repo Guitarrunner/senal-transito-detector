@@ -232,7 +232,7 @@ nonisolated final class MotorCamara:
         }
         
         guard let url = Bundle.main.url(
-            forResource: "senales_v0_2_1",
+            forResource: "senales_v1_0",
             withExtension: "mlmodelc"
         ) else {
             throw NSError(
@@ -240,7 +240,7 @@ nonisolated final class MotorCamara:
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "No se encontró senales_v0_2_1 en la app. "
+                        "No se encontró senales_v1_0 en la app. "
                     + "Revisá el nombre y Target Membership del modelo."
                 ]
             )

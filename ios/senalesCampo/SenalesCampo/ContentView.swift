@@ -335,7 +335,7 @@ struct ContentView: View {
                     precisionMetros: precision,
                     fechaUbicacion: ubicacion.timestamp,
                     fuenteUbicacion: "core_location_ios",
-                    versionModelo: "v0.2.1",
+                    versionModelo: "v1.0",
                     resumenDetecciones: resultados,
                     detecciones: detecciones,
                     rostrosTapados: resultado.rostros,
