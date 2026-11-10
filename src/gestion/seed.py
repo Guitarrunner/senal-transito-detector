@@ -70,7 +70,6 @@ def crear_clases_iniciales(sesion):
         (4, "no_izquierda", "Reglamentación"),
         (5, "no_paso", "Reglamentación"),
         
-        (6, "interseccion", "Prevención"),
         (7, "peaton", "Prevención"),
         (8, "tren", "Prevención"),
         (9, "semaforo", "Prevención"),
@@ -78,30 +77,35 @@ def crear_clases_iniciales(sesion):
         (11, "escolar", "Prevención"),
 
         (12, "lugar", "Información"),
-        (13, "bici", "Información"),
+        (13, "lugar", "Información"),
+        (15, "bici", "Información"),
+        (16, "interseccion", "Prevención"),
     ]
 
     for codigo, nombre, categoria in clases:
         clase_existente = sesion.scalar(
-            select(ClaseSenalBD).where(
-                ClaseSenalBD.codigo == codigo
-            )
+            select(ClaseSenalBD).where(ClaseSenalBD.nombre == nombre)
         )
+        if clase_existente is not None:
+            continue
 
-        if clase_existente is None:
-            clase = ClaseSenalBD(
+        clase_con_codigo = sesion.scalar(
+            select(ClaseSenalBD).where(ClaseSenalBD.codigo == codigo)
+        )
+        if clase_con_codigo is not None:
+            raise RuntimeError(
+                f"No se pudo agregar '{nombre}': el código {codigo} "
+                f"ya pertenece a '{clase_con_codigo.nombre}'."
+            )
+
+        sesion.add(
+            ClaseSenalBD(
                 codigo=codigo,
                 nombre=nombre,
                 categoria=categoria,
-                activa=True
+                activa=True,
             )
-
-            sesion.add(clase)
-
-        else:
-            clase_existente.nombre = nombre
-            clase_existente.categoria = categoria
-            clase_existente.activa = True
+        )
 
 def ejecutar_seed():
     sesion = SessionLocal()

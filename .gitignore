@@ -50,7 +50,8 @@ tools/ubicacion/*.app/
 
 ARCHIVO.gpkg/
 
-ios/senalesCampo/senalesCampo.xcodeproj/
+xcuserdata/
+*.xcuserstate
 
 *.pt
 *.onnx
