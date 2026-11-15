@@ -25,7 +25,7 @@ Si perdés la conexión después de iniciar sesión, podés seguir capturando co
 ## Administración · Usuarios, datasets y modelos
 
 - **Usuarios.** Creá cuentas y asigná el rol de Campo, Operador o Administrador. Desde esta vista también podés activar o desactivar cuentas.
-- **Dataset.** Seleccioná o creá un dataset, cargá imágenes y abrí una para etiquetarla. Dibujá un recuadro ajustado alrededor de cada señal visible que pertenezca al catálogo, elegí la clase y pulsá **Guardar anotación**. Revisá las anotaciones y las estadísticas antes de exportar.
+- **Dataset.** Seleccioná un dataset, cargá imágenes y abrí una para etiquetarla. Dibujá un recuadro ajustado alrededor de cada señal visible que pertenezca al catálogo, elegí la clase y pulsá **Guardar anotación**. Revisá las anotaciones y las estadísticas antes de exportar.
 - **Modelos.** En **Nuevo entrenamiento**, seleccioná el dataset y completá los parámetros. Pulsá **Iniciar entrenamiento** y consultá el progreso en **Entrenamientos**. En **Modelos entrenados**, seleccioná una versión y usá **Activar modelo seleccionado** cuando coincida con la versión instalada en el cliente. Activar una versión en Gestión no instala un paquete nuevo en el iPhone.
 
 ## Si algo falla

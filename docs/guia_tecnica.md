@@ -73,13 +73,13 @@ Abrí `http://127.0.0.1:8000/docs` para consultar el contrato de la API. Los pun
 
 ## Cliente iOS
 
-1. Restaurá la configuración compartida de `ios/senalesCampo/senalesCampo.xcodeproj/`. La revisión `38b88e9` incluye los Swift y los modelos, pero omite la carpeta de proyecto. Conservá `project.xcproj` y `project.xcworkspace/contents.xcworkspacedata` del proyecto local, o recuperalos de `89d9dec`. Excluí `xcuserdata/` y `*.xcuserstate`.
+1. Abrí ios/senalesCampo/senalesCampo.xcodeproj con Xcode 27.2, la versión con la que se verificó la apertura del proyecto. La configuración compartida se encuentra en project.xcproj. Seleccioná el esquema SenalesCampo y configurá el equipo de firma para tu dispositivo.
 2. Abrí `senalesCampo.xcodeproj` en Xcode. Configurá el equipo de firma para tu iPhone y verificá los permisos de cámara, ubicación durante el uso y red local.
 3. En `SenalesCampo/Info.plist`, configurá `APIBaseURL` con la dirección de la Mac en la red local, por ejemplo `http://192.168.1.10:8000`. Conectá el iPhone y la Mac a una red desde la que el teléfono pueda alcanzar ese servidor.
 4. Verificá que `senales_v1_0.mlpackage`, `rostros_ios.mlpackage` y `placas_ios.mlpackage` estén incluidos en el target `SenalesCampo`. Seleccioná el iPhone físico e instalá la app con **⌘R**.
 5. En **Administración → Modelos**, activá la versión correspondiente al paquete. El cliente contrasta la versión guardada en una captura nueva con `/modelos/activo` antes del envío.
 
-Una base inicializada solo con migraciones y seed no trae la fila de la v1.0. Para reproducir el modelo evaluado, restaurá una copia autorizada de la base de pruebas que incluya la versión registrada, junto con los archivos que esa base referencia. Otra instalación puede entrenar y registrar su propia versión desde **Administración → Modelos**, exportar su peso e instalar el Core ML correspondiente. Guardá por separado el `best.pt`, el `dataset.yaml` de esa ejecución y el registro de entrenamiento. El paquete Core ML incluido permite instalar el detector, pero por sí solo no registra la versión en Gestión.
+Las migraciones y el seed preparan la base de datos para una instalación nueva. Para enviar detecciones con el modelo senales_v1_0.mlpackage, Gestión requiere que la versión v1.0 esté registrada y activa. La restauración de los datos de prueba y el registro de la v1.0 desde una instalación limpia quedaron pendientes de verificación.
 
 ## Dataset y actualización del modelo
 
@@ -115,16 +115,40 @@ yolo export model="/ruta/al/best.pt" format=coreml imgsz=640 batch=1 nms=True
 
 Al cambiar de versión, actualizá el paquete incluido en el target, el recurso que carga `CamaraIOS.swift` y la versión que guarda `ContentView.swift`. Activá en Gestión esa misma versión y probá una detección nueva antes de retirar el paquete anterior. Los registros pendientes conservan la versión original.
 
+1. Incorporar al target SenalesCampo el paquete Core ML de la versión que se va a instalar.
+2. Actualizar en CamaraIOS.swift el nombre del recurso que carga Vision y en ContentView.swift la versión que se registra en las capturas nuevas.
+3. Compilar e instalar la aplicación actualizada en el iPhone.
+4. Activar esa misma versión en Administración → Modelos y comprobar que GET /modelos/activo devuelve la versión esperada.
+5. Con la app abierta, realizar una captura nueva y verificar en Gestión que la detección se recibió con la versión correcta. Los registros pendientes conservan la versión con la que se generaron.
+
 ## Mapa local
 
-Gestión busca `data/mapas/costa_rica.sqlite3`. Podés copiar la base de teselas de la entrega o regenerarla con `generar_mapa_local.py`. La regeneración requiere GeoPandas, Shapely y Pyogrio, un GeoPackage de OpenStreetMap con la capa `gis_osm_roads_free` y `data/mapas/provincias_cr.geojson` con las siete provincias. La capa de cantones es opcional y se pasa con `--cantones`.
+Gestión utiliza una base SQLite de teselas que se genera localmente. La interfaz busca el archivo en `data/mapas/costa_rica.sqlite3`.
+
+### Insumos cartográficos
+
+| Insumo | Preparación |
+|---|---|
+| Red vial de Costa Rica | Descargá el [extracto GeoPackage de Geofabrik](https://download.geofabrik.de/central-america/costa-rica.html) y descomprimí el archivo `.gpkg.zip`. El archivo `.gpkg` debe contener la capa `gis_osm_roads_free`. |
+| Límites provinciales | Descargá el GeoJSON de la [capa CRI ADM1 de geoBoundaries](https://www.geoboundaries.org/api/current/gbOpen/CRI/ADM1/) y guardalo como `data/mapas/provincias_cr.geojson`. El generador busca este archivo en esa ruta. |
+| Límites cantonales | Descargá el GeoJSON de la [capa CRI ADM2 de geoBoundaries](https://www.geoboundaries.org/api/current/gbOpen/CRI/ADM2/) y guardalo como `data/mapas/cantones_cr.geojson`. Este archivo se pasa al generador mediante `--cantones`. |
+
+### Generación de la base SQLite
+
+Desde la raíz del repositorio, con el entorno virtual activo, instalá las dependencias y ejecutá el generador. Sustituí `/ruta/al/costa-rica.gpkg` por la ruta del archivo descomprimido.
 
 ```bash
-python -m pip install geopandas shapely pyogrio
-python generar_mapa_local.py "/ruta/a/calles_cr.gpkg"
+python -m pip install geopandas shapely pyogrio pillow
+
+python generar_mapa_local.py "/ruta/al/costa-rica.gpkg" \
+  --cantones data/mapas/cantones_cr.geojson \
+  --zoom-maximo 16 \
+  --salida data/mapas/costa_rica.sqlite3
 ```
 
-Conservá el origen y la versión de los insumos si distribuís el mapa generado.
+El comando genera teselas hasta el nivel 16, que coincide con el zoom máximo configurado en Gestión. Una vez generada la base, abrí **Gestión → Mapa** y comprobá que se muestren la red vial y los límites provinciales. Acercá el mapa para verificar los límites y nombres cantonales.
+
+Para documentar la regeneración, registrá el nombre y la fecha del extracto de Geofabrik, las versiones de las capas de geoBoundaries y el comando utilizado.
 
 ## Comprobación de una instalación
 
