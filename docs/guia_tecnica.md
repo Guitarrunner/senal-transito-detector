@@ -81,6 +81,8 @@ Abrí `http://127.0.0.1:8000/docs` para consultar el contrato de la API. Los pun
 
 Las migraciones y el seed preparan la base de datos para una instalación nueva. Para enviar detecciones con el modelo senales_v1_0.mlpackage, Gestión requiere que la versión v1.0 esté registrada y activa. La restauración de los datos de prueba y el registro de la v1.0 desde una instalación limpia quedaron pendientes de verificación.
 
+El paquete `placas_ios.mlpackage` se generó a partir del archivo `best.pt` del repositorio [yolov8n-license-plate](https://huggingface.co/joker5914/yolov8n-license-plate). La revisión exacta de los pesos descargados quedó sin confirmar.
+
 ## Dataset y actualización del modelo
 
 Gestión exporta imágenes y etiquetas en particiones `train`, `val` y `test`. La exportación deriva las clases de las anotaciones y genera índices YOLO consecutivos. Los índices de YOLO se conservan junto al peso entrenado. En el envío móvil, la etiqueta se resuelve por nombre en `/clases` para obtener el ID de PostgreSQL.
