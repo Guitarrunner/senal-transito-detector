@@ -150,6 +150,8 @@ El comando genera teselas hasta el nivel 16, que coincide con el zoom máximo co
 
 Para documentar la regeneración, registrá el nombre y la fecha del extracto de Geofabrik, las versiones de las capas de geoBoundaries y el comando utilizado.
 
+Las fuentes cartográficas son OpenStreetMap, mediante el extracto GeoPackage de Costa Rica distribuido por Geofabrik, y las capas CRI ADM1 y CRI ADM2 de geoBoundaries. Para cada regeneración se registrará el nombre y la fecha del extracto, la versión o fecha de descarga de los GeoJSON y el comando utilizado. Al compartir la base SQLite o las teselas, se conservarán las atribuciones de las fuentes y se revisarán sus condiciones de distribución.
+
 ## Comprobación de una instalación
 
 1. Abrí la API y Gestión. Confirmá el acceso con una cuenta de operador y que el mapa local se muestre.
