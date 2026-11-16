@@ -29,6 +29,20 @@ Trabajo Final de Graduación de Josué Araya García, Ingeniería en Computadore
 
 ## Versión de referencia
 
-La documentación toma como base el commit `38b88e9`. Ese commit incluye `senales_v1_0.mlpackage` y registra las capturas como v1.0. El proyecto compartido de Xcode, el mapa local y los datos de entrenamiento deben completarse según la [guía técnica](docs/guia_tecnica.md). La prueba de extremo a extremo requiere que la API tenga activa la versión correspondiente al modelo instalado.
+La entrega documentada en el informe corresponde al commit `8022a7f09daad08d7be1cfefc837681001511987`. Esta revisión identifica el código y la documentación de referencia. El commit exacto utilizado durante el entrenamiento de v1.0 quedó sin confirmar.
 
-El detector v1.0 reconoce 14 clases. La posición de un punto en el mapa corresponde al lugar de captura del iPhone. La inferencia puede continuar tras perder la conexión si la sesión ya está iniciada. El inicio de sesión y la sincronización requieren acceso a Gestión.
+El repositorio incluye el proyecto compartido `ios/senalesCampo/senalesCampo.xcodeproj/` y el detector `senales_v1_0.mlpackage`. Se verificó que Xcode 27.2 reconociera el proyecto local y el esquema `SenalesCampo`.
+
+El mapa local se genera siguiendo la [guía técnica](docs/guia_tecnica.md). Los datos y archivos del entrenamiento deben estar disponibles según el procedimiento de entrega documentado. La instalación completa desde un entorno limpio quedó pendiente de verificación.
+
+Para enviar detecciones, la versión activa en Gestión debe corresponder al modelo instalado en el iPhone. La sustitución del modelo móvil se realiza manualmente mediante la incorporación del paquete Core ML, la actualización de sus referencias y la compilación e instalación de la aplicación.
+
+## Alcance y condiciones de operación
+
+El detector v1.0 reconoce 14 clases de señales de tránsito. La ubicación asociada a una detección corresponde a una lectura de posición del teléfono y puede diferir de la ubicación física de la señal.
+
+El inicio de sesión requiere acceso al servidor. Con la sesión iniciada, la aplicación puede continuar capturando y ejecutando inferencias durante una interrupción de conectividad, conservando las capturas seleccionadas en una cola local. La sincronización requiere que el servidor sea accesible y que la aplicación esté activa.
+
+La anonimización se aplica antes de guardar la evidencia en la cola. Su cobertura depende de los modelos de detección de rostros y placas. Durante las pruebas se observaron ocultamientos incorrectos de partes de algunas señales.
+
+Las métricas de detección se obtuvieron con `best.pt` mediante Ultralytics. El rendimiento móvil se midió con el modelo exportado a Core ML. La equivalencia de predicciones entre ambos artefactos quedó pendiente de verificación.
